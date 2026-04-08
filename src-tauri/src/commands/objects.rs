@@ -28,6 +28,7 @@ pub async fn list_objects(
 ) -> Result<ListObjectsResult> {
     let prefix_str = prefix.clone().unwrap_or_default();
     let delimiter_str = delimiter.unwrap_or_else(|| "/".to_string());
+    let requested_bucket_region = bucket_region.clone();
     
     // Get active profile
     let profile_manager = profile_state.read().await;
@@ -106,14 +107,14 @@ pub async fn list_objects(
     }
 
     // Check cache for bucket region first
-    let mut bucket_region = {
+    let mut resolved_bucket_region = {
         let s3_manager = s3_state.read().await;
         s3_manager.get_bucket_region(&bucket_name)
     }.or(bucket_region);
 
     let client = {
         let mut s3_manager = s3_state.write().await;
-        if let Some(ref region) = bucket_region {
+        if let Some(ref region) = resolved_bucket_region {
             s3_manager.get_client_for_region(&active_profile, region).await?.clone()
         } else {
             s3_manager.get_client(&active_profile).await?.clone()
@@ -196,7 +197,7 @@ pub async fn list_objects(
                 }
                 
                 // Update the region we will return and use for fallback
-                bucket_region = Some(new_region.clone());
+                resolved_bucket_region = Some(new_region.clone());
                 
                 // Cache the discovered region for future requests
                 {
@@ -244,12 +245,12 @@ pub async fn list_objects(
 
     // Fallback: If empty, try HeadObject to see if it's a direct file reference
     // We strip the trailing slash because some systems/users append it accidentally to files
-    if objects.is_empty() && common_prefixes.is_empty() && !prefix_str.is_empty() {
+    if objects.is_empty() && common_prefixes.is_empty() && !prefix_str.is_empty() && !prefix_str.ends_with('/') {
         let clean_key = prefix_str.trim_end_matches('/').to_string();
         if !clean_key.is_empty() {
             let client = {
                 let mut s3_manager = s3_state.write().await;
-                if let Some(ref region) = bucket_region {
+                if let Some(ref region) = resolved_bucket_region {
                     s3_manager.get_client_for_region(&active_profile, region).await?.clone()
                 } else {
                     s3_manager.get_client(&active_profile).await?.clone()
@@ -273,7 +274,7 @@ pub async fn list_objects(
         next_continuation_token: output.next_continuation_token().map(|s| s.to_string()),
         is_truncated: output.is_truncated().unwrap_or(false),
         prefix: prefix_str,
-        bucket_region,
+        bucket_region: resolved_bucket_region.or(requested_bucket_region),
     })
 }
 
@@ -294,16 +295,16 @@ pub async fn search_objects(
     drop(profile_manager);
     
     let prefix_str = prefix.unwrap_or_default();
+    let query_lower = query.to_lowercase();
     
     // 1. Try Cache First
     {
         let s3_manager = s3_state.read().await;
         if s3_manager.has_cache(&active_profile.id, &bucket_name) {
             if let Some(all_objects) = s3_manager.get_cached_objects(&active_profile.id, &bucket_name) {
-                 let q = query.to_lowercase();
                  let filtered: Vec<S3Object> = all_objects.iter()
                      // If searching from a prefix, only include objects starting with that prefix
-                     .filter(|obj| obj.key.starts_with(&prefix_str) && obj.key.to_lowercase().contains(&q))
+                     .filter(|obj| obj.key.starts_with(&prefix_str) && obj.key.to_lowercase().contains(&query_lower))
                      .cloned()
                      .collect();
                  return Ok(filtered);
@@ -339,7 +340,7 @@ pub async fn search_objects(
             .bucket(&bucket_name)
             .prefix(&prefix_str); // Respect prefix context
 
-        if let Some(token) = continuation_token {
+        if let Some(ref token) = continuation_token {
             req = req.continuation_token(token);
         }
 
@@ -371,11 +372,14 @@ pub async fn search_objects(
                         s3_manager.get_client_for_region(&active_profile, &new_region).await?.clone()
                     };
                     
-                    let retry_req = new_client.list_objects_v2()
+                    let mut retry_req = new_client.list_objects_v2()
                         .bucket(&bucket_name)
                         .prefix(&prefix_str);
-                    
-                    // bucket_region assignment removed - not read after this
+
+                    if let Some(token) = &continuation_token {
+                        retry_req = retry_req.continuation_token(token);
+                    }
+
                     retry_req.send().await
                         .map_err(|e| crate::error::AppError::S3Error(format!("Search retry failed: {}", e)))?
                 } else {
@@ -393,7 +397,7 @@ pub async fn search_objects(
             if key.ends_with('/') && size == 0 {
                 continue;
             }
-            if key.to_lowercase().contains(&query.to_lowercase()) {
+            if key.to_lowercase().contains(&query_lower) {
                 objects.push(S3Object {
                     key: key.to_string(),
                     size,

@@ -214,7 +214,8 @@ export const objectApi = {
   },
 
   async putObjectContent(bucketName: string, bucketRegion: string | undefined, key: string, content: string): Promise<void> {
-    return invoke<void>('put_object_content', { bucketName, bucketRegion, key, content });
+    await invoke<void>('put_object_content', { bucketName, bucketRegion, key, content });
+    invalidateCache();
   },
 };
 
