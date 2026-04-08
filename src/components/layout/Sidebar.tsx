@@ -75,6 +75,11 @@ export default function Sidebar() {
     router.push(item.path);
   };
 
+  const handleSettingsClick = () => {
+    addTab({ title: 'Settings', path: '/settings', icon: 'settings' });
+    router.push('/settings');
+  };
+
   // Disabled item styles
   const disabledStyles = {
     opacity: 0.4,
@@ -201,7 +206,8 @@ export default function Sidebar() {
         <List dense>
           <ListItem disablePadding>
             <ListItemButton 
-              onClick={() => router.push('/settings')} 
+              onClick={handleSettingsClick}
+              selected={pathname === '/settings'}
               sx={{ mx: 1 }}
             >
               <ListItemIcon sx={{ minWidth: 32 }}>
@@ -225,4 +231,3 @@ export default function Sidebar() {
     </Box>
   );
 }
-

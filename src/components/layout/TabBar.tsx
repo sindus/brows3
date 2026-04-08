@@ -10,7 +10,8 @@ import {
     Star as StarIcon,
     History as RecentIcon,
     FileUpload as UploadIcon,
-    FileDownload as DownloadIcon
+    FileDownload as DownloadIcon,
+    Settings as SettingsIcon,
 } from '@mui/icons-material';
 import { useAppStore, Tab as TabType } from '@/store/appStore';
 import { useProfileStore } from '@/store/profileStore';
@@ -82,6 +83,7 @@ export default function TabBar() {
         case 'recent': return <RecentIcon sx={{ fontSize: 16 }} />;
         case 'upload': return <UploadIcon sx={{ fontSize: 16 }} />;
         case 'download': return <DownloadIcon sx={{ fontSize: 16 }} />;
+        case 'settings': return <SettingsIcon sx={{ fontSize: 16 }} />;
         default: return <BucketIcon sx={{ fontSize: 16 }} />;
     }
   };
