@@ -33,7 +33,11 @@ export function TransferPanel({ filterType }: TransferPanelProps) {
     : jobs;
   
   const activeJobs = filteredJobs.filter(j => j.status === 'Pending' || j.status === 'InProgress');
-  const completedJobs = filteredJobs.filter(j => j.status === 'Completed');
+  const finishedJobs = filteredJobs.filter(j =>
+    j.status === 'Completed' ||
+    j.status === 'Cancelled' ||
+    (typeof j.status === 'object' && 'Failed' in j.status)
+  );
   
   const getStatusIcon = (status: TransferJob['status']) => {
     if (status === 'Completed') return <CheckCircleIcon color="success" fontSize="small" />;
@@ -84,8 +88,8 @@ export function TransferPanel({ filterType }: TransferPanelProps) {
              <Typography variant="caption" color="text.secondary" sx={{ ml: 0.5 }}>
                {activeJobs.length > 0 
                  ? `${activeJobs.length} active` 
-                 : completedJobs.length > 0 
-                   ? `${completedJobs.length} done`
+                 : finishedJobs.length > 0 
+                   ? `${finishedJobs.length} finished`
                    : ''
                }
              </Typography>
@@ -147,7 +151,7 @@ export function TransferPanel({ filterType }: TransferPanelProps) {
                  })
                )}
              </List>
-             {completedJobs.length > 0 && (
+             {finishedJobs.length > 0 && (
                <Box sx={{ p: 1, borderTop: '1px solid', borderColor: 'divider', textAlign: 'center' }}>
                  <Typography 
                    variant="caption" 
@@ -155,7 +159,7 @@ export function TransferPanel({ filterType }: TransferPanelProps) {
                    sx={{ cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
                    onClick={() => clearCompleted()}
                  >
-                   Clear completed
+                   Clear finished
                  </Typography>
                </Box>
              )}

@@ -143,6 +143,7 @@ export default function UploadsPage() {
     const active = uploads.filter(u => u.status === 'InProgress' || u.status === 'Pending');
     const completed = uploads.filter(u => u.status === 'Completed');
     const failed = uploads.filter(u => typeof u.status === 'object' && 'Failed' in u.status);
+    const cancelled = uploads.filter(u => u.status === 'Cancelled');
     
     const totalBytes = active.reduce((sum, u) => sum + u.total_bytes, 0);
     const processedBytes = active.reduce((sum, u) => sum + u.processed_bytes, 0);
@@ -151,6 +152,7 @@ export default function UploadsPage() {
       activeCount: active.length,
       completedCount: completed.length,
       failedCount: failed.length,
+      cancelledCount: cancelled.length,
       totalBytes,
       processedBytes,
       progress: totalBytes > 0 ? (processedBytes / totalBytes) * 100 : 0,
@@ -181,14 +183,14 @@ export default function UploadsPage() {
         
         <Box sx={{ display: 'flex', gap: 1 }}>
 
-          {(stats.completedCount > 0 || stats.failedCount > 0) && (
+          {(stats.completedCount > 0 || stats.failedCount > 0 || stats.cancelledCount > 0) && (
             <Button 
               variant="outlined" 
               size="small"
               startIcon={<DeleteIcon />}
               onClick={clearCompleted}
             >
-              Clear Completed
+              Clear Finished
             </Button>
           )}
         </Box>
@@ -262,9 +264,10 @@ export default function UploadsPage() {
         </TableContainer>
       )}
       
-      {stats.failedCount > 0 && (
+      {(stats.failedCount > 0 || stats.cancelledCount > 0) && (
          <Typography variant="caption" color="error" sx={{ mt: 1 }}>
            <strong>{stats.failedCount}</strong> failed
+           {stats.cancelledCount > 0 ? ` • ${stats.cancelledCount} cancelled` : ''}
          </Typography>
       )}
 
