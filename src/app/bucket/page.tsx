@@ -879,6 +879,18 @@ function BucketContent() {
     handleMenuClose();
   };
 
+  const handleCreateFolderClose = () => {
+    if (isCreatingFolder) return;
+    setCreateFolderOpen(false);
+    setNewFolderName('');
+  };
+
+  const handleRenameClose = () => {
+    setRenameOpen(false);
+    setRenameTarget(null);
+    setRenameValue('');
+  };
+
   const handleRename = async () => {
     if (!bucketName || !renameTarget || !renameValue.trim()) return;
     try {
@@ -905,6 +917,7 @@ function BucketContent() {
        displaySuccess('Renamed successfully');
        setRenameOpen(false);
        setRenameTarget(null);
+       setRenameValue('');
        refresh();
     } catch (err) {
        displayError(`Rename failed: ${err}`);
@@ -1389,7 +1402,7 @@ function BucketContent() {
       </Menu>
 
       {/* Create Folder Dialog */}
-      <Dialog open={createFolderOpen} onClose={() => setCreateFolderOpen(false)}>
+      <Dialog open={createFolderOpen} onClose={handleCreateFolderClose}>
         <DialogTitle>Create New Folder</DialogTitle>
         <DialogContent>
           <TextField
@@ -1419,7 +1432,7 @@ function BucketContent() {
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setCreateFolderOpen(false)}>Cancel</Button>
+          <Button onClick={handleCreateFolderClose}>Cancel</Button>
           <Button 
             onClick={handleCreateFolder} 
             disabled={
@@ -1435,7 +1448,7 @@ function BucketContent() {
       </Dialog>
       
       {/* Rename Dialog */}
-      <Dialog open={renameOpen} onClose={() => { setRenameOpen(false); setRenameTarget(null); }}>
+      <Dialog open={renameOpen} onClose={handleRenameClose}>
         <DialogTitle>Rename</DialogTitle>
         <DialogContent>
           <TextField
@@ -1463,7 +1476,7 @@ function BucketContent() {
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => { setRenameOpen(false); setRenameTarget(null); }}>Cancel</Button>
+          <Button onClick={handleRenameClose}>Cancel</Button>
           <Button 
             onClick={handleRename} 
             disabled={
