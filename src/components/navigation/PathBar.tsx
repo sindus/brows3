@@ -55,7 +55,7 @@ export default function PathBar() {
     const prefix = searchParams.get('prefix') || '';
     
     if (bucket) {
-      const uri = `s3://${bucket}/${prefix}`;
+      const uri = `s3://${bucket}${region ? `@${region}` : ''}/${prefix}`;
       setInputValue(uri);
     } else {
       setInputValue('');
