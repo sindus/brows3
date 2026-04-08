@@ -37,7 +37,7 @@ import {
   Dns as ProfileIcon,
   Public as RegionIcon,
 } from '@mui/icons-material';
-import { Profile, CredentialType, profileApi, TestConnectionResult } from '@/lib/tauri';
+import { Profile, CredentialType, profileApi, TestConnectionResult, bucketApi, invalidateCache } from '@/lib/tauri';
 import { useProfileStore } from '@/store/profileStore';
 import { useAppStore } from '@/store/appStore';
 import { useHistoryStore } from '@/store/historyStore';
@@ -67,8 +67,8 @@ interface ProfileDialogProps {
 export default function ProfileDialog({ open, onClose, editProfile }: ProfileDialogProps) {
   const router = useRouter();
   const theme = useTheme();
-  const { profiles, addProfile, updateProfile, setActiveProfileId } = useProfileStore();
-  const { resetApp } = useAppStore();
+  const { profiles, activeProfileId, addProfile, updateProfile, setActiveProfileId } = useProfileStore();
+  const { resetApp, clearDiscoveredRegions } = useAppStore();
   const { clearHistory } = useHistoryStore();
   const { clear: clearClipboard } = useClipboardStore();
   const { defaultRegion } = useSettingsStore();
@@ -275,6 +275,12 @@ export default function ProfileDialog({ open, onClose, editProfile }: ProfileDia
         };
         const updated = await profileApi.updateProfile(selectedProfile.id, profileToUpdate);
         updateProfile(selectedProfile.id, updated);
+        if (selectedProfile.id === activeProfileId) {
+          await bucketApi.refreshS3Client();
+          clearDiscoveredRegions();
+          invalidateBucketCache();
+          invalidateCache();
+        }
       } else {
         const created = await profileApi.addProfile(profileData as Profile);
         addProfile(created);
