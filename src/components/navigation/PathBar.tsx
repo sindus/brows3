@@ -35,6 +35,7 @@ export default function PathBar() {
   const [inputValue, setInputValue] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
+  const [highlightedOption, setHighlightedOption] = useState<string | null>(null);
   
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -214,6 +215,7 @@ export default function PathBar() {
       onOpen={() => setIsOpen(true)}
       onClose={() => setIsOpen(false)}
       inputValue={inputValue}
+      onHighlightChange={(_, option) => setHighlightedOption(option)}
       onInputChange={(_, newVal, reason) => {
         // IMPORTANT: Ignore 'reset' events which MUI triggers on blur or selection
         // This prevents the input from being wiped or snapped to a previous value
@@ -233,9 +235,10 @@ export default function PathBar() {
       }}
       onKeyDown={(e) => {
         if (e.key === 'Enter') {
-          // If the popup is open and an item is highlighted, Autocomplete handles it via onChange
-          // We only trigger manual navigation if the popup is closed or no item is highlighted
-          // The use of setTimeout or isNavigating ref in handleNavigate handles race conditions
+          // Let Autocomplete selection handle Enter when a history option is highlighted.
+          if (isOpen && highlightedOption) {
+            return;
+          }
           handleNavigate(inputValue);
         }
       }}

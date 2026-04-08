@@ -49,6 +49,7 @@ export default function ProfileSelector() {
     
     try {
       await profileApi.setActiveProfile(newProfileId);
+      setActiveProfileId(newProfileId);
       // Also refresh buckets for the new profile
       bucketApi.refreshS3Client().then(() => {
            // The useBuckets hook will react to profile change if it's set up to do so
@@ -56,8 +57,8 @@ export default function ProfileSelector() {
       });
     } catch (error) {
       console.error('Failed to set active profile:', error);
+      return;
     }
-    setActiveProfileId(newProfileId);
   };
   
   const handleEditProfile = (profile: Profile) => {

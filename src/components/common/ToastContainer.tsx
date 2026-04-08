@@ -15,6 +15,7 @@ import {
   Slide,
   Stack,
 } from '@mui/material';
+import { copyToClipboard } from '@/lib/tauri';
 import {
   Close as CloseIcon,
   ExpandMore as ExpandMoreIcon,
@@ -224,9 +225,9 @@ export default function ToastContainer() {
             <Button
               variant="contained"
               startIcon={<CopyIcon />}
-              onClick={() => {
+              onClick={async () => {
                 if (detailsDialog.toast) {
-                  navigator.clipboard.writeText(
+                  await copyToClipboard(
                     `${detailsDialog.toast.message}\n\n${detailsDialog.toast.details || ''}`
                   );
                 }

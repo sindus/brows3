@@ -39,7 +39,8 @@ export const useTransferStore = create<TransferState>((set, get) => ({
     return { 
       jobsMap: newMap,
       jobs: [job, ...state.jobs],
-      isPanelOpen: true 
+      isPanelOpen: true,
+      isPanelHidden: false,
     };
   }),
   
@@ -55,7 +56,8 @@ export const useTransferStore = create<TransferState>((set, get) => ({
     return { 
       jobsMap: newMap,
       jobs: newJobs,
-      isPanelOpen: true 
+      isPanelOpen: true,
+      isPanelHidden: false,
     };
   }),
   
@@ -147,4 +149,3 @@ export const useTransferStore = create<TransferState>((set, get) => ({
     get().refreshJobs();
   }
 }));
-

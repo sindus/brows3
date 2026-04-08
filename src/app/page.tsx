@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect, useCallback, useRef, Suspense } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef, Suspense, useDeferredValue } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Box,
@@ -54,6 +54,7 @@ function HomeContent() {
   const { buckets, isLoading, error, refresh, fetchBuckets } = useBuckets({ enabled: showBuckets });
   
   const [searchQuery, setSearchQuery] = useState('');
+  const deferredSearchQuery = useDeferredValue(searchQuery);
   const [s3UriInput, setS3UriInput] = useState('');
   
   const activeProfile = profiles.find((p) => p.id === activeProfileId);
@@ -62,13 +63,13 @@ function HomeContent() {
   
 
   const filteredBuckets = useMemo(() => {
-    if (!searchQuery.trim()) return buckets;
-    const query = searchQuery.toLowerCase();
+    if (!deferredSearchQuery.trim()) return buckets;
+    const query = deferredSearchQuery.toLowerCase();
     return buckets.filter(bucket => 
       bucket.name.toLowerCase().includes(query) || 
       bucket.region.toLowerCase().includes(query)
     );
-  }, [buckets, searchQuery]);
+  }, [buckets, deferredSearchQuery]);
 
   const handleFetchBuckets = () => {
     router.push('/?view=discovery');

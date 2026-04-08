@@ -14,7 +14,7 @@ import {
   Save as SaveIcon,
   ContentCopy as CopyIcon,
 } from '@mui/icons-material';
-import { objectApi } from '@/lib/tauri';
+import { copyToClipboard, objectApi } from '@/lib/tauri';
 import Editor, { OnMount } from '@monaco-editor/react';
 import { toast } from '@/store/toastStore';
 import { BaseDialog } from '../common/BaseDialog';
@@ -127,6 +127,7 @@ export default function ObjectPreviewDialog({
   const editorRef = useRef<any>(null);
   const initialVersionIdRef = useRef<number>(0);
   const [currentVersionId, setCurrentVersionId] = useState<number>(0);
+  const loadRequestIdRef = useRef(0);
 
   const filename = objectKey.split('/').pop() || objectKey;
   const ext = getExtension(filename);
@@ -144,6 +145,8 @@ export default function ObjectPreviewDialog({
 
   useEffect(() => {
     if (!open || !objectKey) return;
+    const requestId = ++loadRequestIdRef.current;
+    let cancelled = false;
 
     const loadContent = async () => {
       setIsLoading(true);
@@ -166,10 +169,10 @@ export default function ObjectPreviewDialog({
 
       // Safety timeout to prevent infinite spinner
       const timeoutId = setTimeout(() => {
-        if (isLoading) {
-             console.error("Content loading timed out");
-             setIsLoading(false);
-             setError("Loading timed out. Please try again.");
+        if (!cancelled && requestId === loadRequestIdRef.current) {
+          console.error("Content loading timed out");
+          setIsLoading(false);
+          setError("Loading timed out. Please try again.");
         }
       }, 15000); 
 
@@ -182,25 +185,37 @@ export default function ObjectPreviewDialog({
              setTimeout(() => setIsPdfLoading(false), 5000); 
           }
           const url = await objectApi.getPresignedUrl(bucketName, bucketRegion, objectKey, 3600);
-          setPresignedUrl(url);
+          if (!cancelled && requestId === loadRequestIdRef.current) {
+            setPresignedUrl(url);
+          }
         } else if (isText) {
           // Get text content
           const textContent = await objectApi.getObjectContent(bucketName, bucketRegion, objectKey);
           
           // Even if empty, it's valid content
-          setContent(textContent || '');
-          setEditedContent(textContent || '');
+          if (!cancelled && requestId === loadRequestIdRef.current) {
+            setContent(textContent || '');
+            setEditedContent(textContent || '');
+          }
         }
       } catch (err) {
         console.error("Failed to load object content:", err);
-        setError(err instanceof Error ? err.message : 'Failed to load content');
+        if (!cancelled && requestId === loadRequestIdRef.current) {
+          setError(err instanceof Error ? err.message : 'Failed to load content');
+        }
       } finally {
         clearTimeout(timeoutId);
-        setIsLoading(false);
+        if (!cancelled && requestId === loadRequestIdRef.current) {
+          setIsLoading(false);
+        }
       }
     };
 
     loadContent();
+
+    return () => {
+      cancelled = true;
+    };
   }, [open, objectKey, bucketName, bucketRegion, isImageFile, isVideoFile, isPdfFile, isText, objectSize]);
 
   const handleSave = async () => {
@@ -230,9 +245,13 @@ export default function ObjectPreviewDialog({
     }
   };
 
-  const handleCopyContent = () => {
-    navigator.clipboard.writeText(isEditing ? editedContent : content);
-    toast.info('Copied', 'Content copied to clipboard');
+  const handleCopyContent = async () => {
+    try {
+      await copyToClipboard(isEditing ? editedContent : content);
+      toast.info('Copied', 'Content copied to clipboard');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to copy content');
+    }
   };
 
   const handleEditorDidMount: OnMount = (editor, monaco) => {

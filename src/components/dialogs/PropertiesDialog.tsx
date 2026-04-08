@@ -16,6 +16,7 @@ import {
   useTheme,
 } from '@mui/material';
 import { useState, useEffect } from 'react';
+import { useRef } from 'react';
 import { operationsApi, ObjectMetadata } from '@/lib/tauri';
 import { BaseDialog } from '../common/BaseDialog';
 import { formatSize } from '@/lib/utils';
@@ -54,6 +55,7 @@ export default function PropertiesDialog({ open, onClose, bucketName, bucketRegi
   const [metadata, setMetadata] = useState<ObjectMetadata | null>(null);
   const [error, setError] = useState<string | null>(null);
   const theme = useTheme();
+  const requestIdRef = useRef(0);
 
   useEffect(() => {
     if (open && bucketName && objectKey) {
@@ -66,20 +68,27 @@ export default function PropertiesDialog({ open, onClose, bucketName, bucketRegi
   }, [open, bucketName, bucketRegion, objectKey]);
 
   const fetchMetadata = async () => {
+    const requestId = ++requestIdRef.current;
     setLoading(true);
     setError(null);
     try {
       const data = await operationsApi.getObjectMetadata(bucketName, bucketRegion, objectKey);
-      setMetadata(data);
+      if (requestId === requestIdRef.current) {
+        setMetadata(data);
+      }
     } catch (err) {
       const errorMsg = String(err);
-      if (errorMsg.includes('Access Denied') || errorMsg.includes('403')) {
-          setError('Access Denied: You do not have permission to view metadata.');
-      } else {
-          setError(`Failed to load properties: ${errorMsg}`);
+      if (requestId === requestIdRef.current) {
+        if (errorMsg.includes('Access Denied') || errorMsg.includes('403')) {
+            setError('Access Denied: You do not have permission to view metadata.');
+        } else {
+            setError(`Failed to load properties: ${errorMsg}`);
+        }
       }
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) {
+        setLoading(false);
+      }
     }
   };
 

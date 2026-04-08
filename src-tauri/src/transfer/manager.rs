@@ -75,6 +75,11 @@ impl TransferManager {
                 TransferStatus::Pending | TransferStatus::InProgress => {
                     job.status = TransferStatus::Cancelled;
                     let job_clone = job.clone();
+
+                    {
+                        let mut queue = self.queue.lock().await;
+                        queue.retain(|job_id| job_id != id);
+                    }
                     
                     // CRITICAL FIX: Abort the actual tokio task to stop Phantom I/O
                     let mut handles = self.abort_handles.write().await;
@@ -96,6 +101,17 @@ impl TransferManager {
     
     /// Remove a specific transfer job from history
     pub async fn remove_job(&self, id: &str) -> bool {
+        {
+            let mut queue = self.queue.lock().await;
+            queue.retain(|job_id| job_id != id);
+        }
+
+        let mut handles = self.abort_handles.write().await;
+        if let Some(handle) = handles.remove(id) {
+            handle.abort();
+        }
+        drop(handles);
+
         let mut jobs = self.jobs.write().await;
         jobs.remove(id).is_some()
     }
@@ -184,6 +200,16 @@ impl TransferManager {
                 let id_inner = next_id.clone();
 
                 let handle = tokio::spawn(async move {
+                    let should_run = matches!(
+                        manager_inner.get_job(&id_inner).await.map(|job| job.status),
+                        Some(TransferStatus::Pending)
+                    );
+
+                    if !should_run {
+                        drop(permit);
+                        return;
+                    }
+
                     // Update status to InProgress
                     manager_inner.update_job_status(&id_inner, TransferStatus::InProgress).await;
                     

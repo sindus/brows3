@@ -27,7 +27,7 @@ interface HistoryState {
   favorites: RecentItem[];
   addFavorite: (item: RecentItem) => void;
   removeFavorite: (key: string, bucket?: string) => void;
-  isFavorite: (key: string) => boolean;
+  isFavorite: (key: string, bucket?: string) => boolean;
   clearFavorites: () => void;
 }
 
@@ -47,7 +47,7 @@ export const useHistoryStore = create<HistoryState>()(
       addRecent: (item) => set((state) => {
         // Similar dedupe logic for items
         const newItem = { ...item, timestamp: Date.now() };
-        const filtered = state.recentItems.filter(i => i.key !== item.key);
+        const filtered = state.recentItems.filter(i => !(i.key === item.key && i.bucket === item.bucket));
         return { recentItems: [newItem, ...filtered].slice(0, 50) };
       }),
       
@@ -62,7 +62,7 @@ export const useHistoryStore = create<HistoryState>()(
         favorites: state.favorites.filter(i => !(i.key === key && (bucket ? i.bucket === bucket : true))) 
       })),
       
-      isFavorite: (key) => get().favorites.some(i => i.key === key),
+      isFavorite: (key, bucket) => get().favorites.some(i => i.key === key && (bucket ? i.bucket === bucket : true)),
       
       clearFavorites: () => set({ favorites: [] }),
 

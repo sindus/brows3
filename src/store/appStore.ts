@@ -34,7 +34,7 @@ interface AppState {
   // Tab Actions
   addTab: (tab: Omit<Tab, 'id'>) => void;
   removeTab: (id: string) => void;
-  setActiveTab: (id: string) => void;
+  setActiveTab: (id: string | null) => void;
   updateTab: (id: string, updates: Partial<Tab>) => void;
   
   // Global Reset

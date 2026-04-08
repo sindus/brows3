@@ -45,8 +45,8 @@ export function useBuckets(options: { enabled?: boolean } = { enabled: true }): 
   const [error, setError] = useState<string | null>(null);
   const [cacheTimestamp, setCacheTimestamp] = useState<number | null>(null);
   const { activeProfileId } = useProfileStore();
-  const fetchInProgress = useRef(false);
   const mountedRef = useRef(true);
+  const requestIdRef = useRef(0);
 
   // Connect the cache invalidator so write operations trigger a refresh
   useEffect(() => {
@@ -58,15 +58,18 @@ export function useBuckets(options: { enabled?: boolean } = { enabled: true }): 
 
   const fetchBuckets = useCallback(async (skipCache = false) => {
     if (!activeProfileId) {
+      requestIdRef.current += 1;
       setBuckets([]);
       setIsLoading(false);
       setCacheTimestamp(null);
       return;
     }
 
+    const profileId = activeProfileId;
+
     // Check cache first for instant loading
     if (!skipCache) {
-      const cached = bucketCache.get(activeProfileId);
+      const cached = bucketCache.get(profileId);
       if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
         setBuckets(cached.data);
         setCacheTimestamp(cached.timestamp);
@@ -75,9 +78,7 @@ export function useBuckets(options: { enabled?: boolean } = { enabled: true }): 
       }
     }
 
-    // Prevent duplicate fetches
-    if (fetchInProgress.current) return;
-    fetchInProgress.current = true;
+    const requestId = ++requestIdRef.current;
 
     setIsLoading(true);
     setError(null);
@@ -85,15 +86,15 @@ export function useBuckets(options: { enabled?: boolean } = { enabled: true }): 
     try {
       const data = await bucketApi.listBucketsWithRegions();
       
-      if (mountedRef.current) {
+      if (mountedRef.current && requestId === requestIdRef.current && useProfileStore.getState().activeProfileId === profileId) {
         const now = Date.now();
         setBuckets(data);
         setCacheTimestamp(now);
         // Cache the result
-        bucketCache.set(activeProfileId, { data, timestamp: now });
+        bucketCache.set(profileId, { data, timestamp: now });
       }
     } catch (err) {
-      if (mountedRef.current) {
+      if (mountedRef.current && requestId === requestIdRef.current && useProfileStore.getState().activeProfileId === profileId) {
         let message = 'Failed to load buckets';
         if (err instanceof Error) {
           message = err.message;
@@ -112,10 +113,9 @@ export function useBuckets(options: { enabled?: boolean } = { enabled: true }): 
         setCacheTimestamp(null);
       }
     } finally {
-      if (mountedRef.current) {
+      if (mountedRef.current && requestId === requestIdRef.current) {
         setIsLoading(false);
       }
-      fetchInProgress.current = false;
     }
   }, [activeProfileId]);
 
@@ -167,4 +167,3 @@ export function useBuckets(options: { enabled?: boolean } = { enabled: true }): 
 
   return { buckets, isLoading, error, refresh, fetchBuckets, isCached, cacheAge };
 }
-

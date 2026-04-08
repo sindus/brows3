@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { Suspense, useState, useMemo, useEffect, useRef, useCallback, useDeferredValue } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import {
   Box,
@@ -68,7 +68,7 @@ import {
   Edit as EditIcon,
 } from '@mui/icons-material';
 import { useObjects } from '@/hooks/useObjects';
-import { operationsApi, transferApi, objectApi, S3Object } from '@/lib/tauri';
+import { operationsApi, transferApi, objectApi, S3Object, copyToClipboard } from '@/lib/tauri';
 import { open, save } from '@tauri-apps/plugin-dialog';
 import { useTransferStore } from '@/store/transferStore';
 import { useClipboardStore } from '@/store/clipboardStore';
@@ -104,6 +104,7 @@ function BucketContent() {
   
   // Search State
   const [searchQuery, setSearchQuery] = useState('');
+  const deferredSearchQuery = useDeferredValue(searchQuery);
   const [isDeepSearch, setIsDeepSearch] = useState(false);
   const [searchResults, setSearchResults] = useState<S3Object[] | null>(null);
   const [isSearching, setIsSearching] = useState(false);
@@ -184,9 +185,11 @@ function BucketContent() {
 
   const handleSearch = async () => {
     if (!bucketName) return;
+    const query = searchQuery.trim();
     
     // If empty query, clear everything
-    if (!searchQuery.trim()) {
+    if (!query) {
+        searchSequenceRef.current += 1;
         setSearchResults(null);
         setIsSearching(false);
         return;
@@ -200,7 +203,7 @@ function BucketContent() {
             // Server-side deep search with timeout to prevent freeze
             const SEARCH_TIMEOUT_MS = 30000; // 30 seconds max
             
-            const searchPromise = objectApi.searchObjects(bucketName, bucketRegion, searchQuery, prefix);
+            const searchPromise = objectApi.searchObjects(bucketName, bucketRegion, query, prefix);
             const timeoutPromise = new Promise<never>((_, reject) => 
                 setTimeout(() => reject(new Error('Search timed out after 30 seconds')), SEARCH_TIMEOUT_MS)
             );
@@ -213,7 +216,7 @@ function BucketContent() {
                 
                 // Show message if no results
                 if ((results as any).length === 0) {
-                    toast.info('No Results', `No objects found matching "${searchQuery}"`);
+                    toast.info('No Results', `No objects found matching "${query}"`);
                 }
             }
         } catch (err) {
@@ -243,6 +246,8 @@ function BucketContent() {
 
   // derived data for display (sorting handled by VirtualizedObjectTable)
   const displayData = useMemo(() => {
+     const normalizedQuery = deferredSearchQuery.trim().toLowerCase();
+
      // 1. Deep Search Results (Server-side)
      if (isDeepSearch && searchResults) {
          return {
@@ -255,18 +260,17 @@ function BucketContent() {
      }
      
      // 2. Local Filtering (Client-side on current page data)
-     if (!isDeepSearch && searchQuery && data) {
-         const lowerQ = searchQuery.toLowerCase();
+     if (!isDeepSearch && normalizedQuery && data) {
          return {
              ...data,
-             objects: data.objects.filter(o => o.key.toLowerCase().includes(lowerQ)),
-             common_prefixes: data.common_prefixes.filter(p => p.toLowerCase().includes(lowerQ))
+             objects: data.objects.filter(o => o.key.toLowerCase().includes(normalizedQuery)),
+             common_prefixes: data.common_prefixes.filter(p => p.toLowerCase().includes(normalizedQuery))
          };
      }
      
      // 3. Default View
      return data;
-  }, [data, searchResults, searchQuery, prefix, isDeepSearch]);
+  }, [data, searchResults, deferredSearchQuery, prefix, isDeepSearch]);
 
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -491,7 +495,25 @@ function BucketContent() {
 
   // Keyboard Shortcuts - use refs to always get latest function
   useEffect(() => {
+    searchSequenceRef.current += 1;
+    if (!searchQuery.trim()) {
+      setSearchResults(null);
+      setIsSearching(false);
+    }
+  }, [searchQuery]);
+
+  useEffect(() => {
+    const isEditableTarget = (target: EventTarget | null) => {
+      if (!(target instanceof HTMLElement)) return false;
+      const tagName = target.tagName;
+      return target.isContentEditable || tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT';
+    };
+
     const handleKeyDown = (e: KeyboardEvent) => {
+       if (isEditableTarget(e.target)) {
+         return;
+       }
+
        // Copy: Cmd+C
        if ((e.metaKey || e.ctrlKey) && e.key === 'c') {
          e.preventDefault();
@@ -988,7 +1010,13 @@ function BucketContent() {
                endAdornment: (
                    <InputAdornment position="end">
                      {searchQuery && (
-                         <IconButton size="small" onClick={() => { setSearchQuery(''); setIsDeepSearch(false); setSearchResults(null); }} edge="end">
+                         <IconButton size="small" onClick={() => {
+                           searchSequenceRef.current += 1;
+                           setSearchQuery('');
+                           setIsDeepSearch(false);
+                           setSearchResults(null);
+                           setIsSearching(false);
+                         }} edge="end">
                            <CloseIcon fontSize="small" />
                          </IconButton>
                      )}
@@ -1165,8 +1193,9 @@ function BucketContent() {
         }}
         onCopyPath={(key) => {
           const s3Uri = `s3://${bucketName}/${key}`;
-          navigator.clipboard.writeText(s3Uri);
-          displaySuccess(`Copied: ${s3Uri}`);
+          copyToClipboard(s3Uri)
+            .then(() => displaySuccess(`Copied: ${s3Uri}`))
+            .catch((err) => displayError('Failed to copy path', String(err)));
         }}
       />
 
@@ -1232,8 +1261,8 @@ function BucketContent() {
         <MenuItem onClick={() => {
           if (selectedObject && bucketName) {
             const name = selectedObject.key.split('/').filter(Boolean).pop() || selectedObject.key;
-            if (isFavorite(selectedObject.key)) {
-              removeFavorite(selectedObject.key);
+            if (isFavorite(selectedObject.key, bucketName)) {
+              removeFavorite(selectedObject.key, bucketName);
               displaySuccess('Removed from favorites');
             } else {
               addFavorite({
@@ -1249,11 +1278,11 @@ function BucketContent() {
           handleMenuClose();
         }}>
           <ListItemIcon>
-            {selectedObject && isFavorite(selectedObject.key) 
+            {selectedObject && isFavorite(selectedObject.key, bucketName || undefined) 
               ? <StarIcon fontSize="small" color="warning" /> 
               : <StarBorderIcon fontSize="small" />}
           </ListItemIcon>
-          {selectedObject && isFavorite(selectedObject.key) ? 'Remove from Favorites' : 'Add to Favorites'}
+          {selectedObject && isFavorite(selectedObject.key, bucketName || undefined) ? 'Remove from Favorites' : 'Add to Favorites'}
         </MenuItem>
         {!selectedObject?.isFolder && (
           <MenuItem onClick={() => {
@@ -1271,8 +1300,9 @@ function BucketContent() {
         <MenuItem onClick={() => {
           if (selectedObject) {
             const filename = selectedObject.key.split('/').filter(Boolean).pop() || selectedObject.key;
-            navigator.clipboard.writeText(filename);
-            displaySuccess(`Copied filename: ${filename}`);
+            copyToClipboard(filename)
+              .then(() => displaySuccess(`Copied filename: ${filename}`))
+              .catch((err) => displayError('Failed to copy filename', String(err)));
           }
           handleMenuClose();
         }}>
@@ -1281,8 +1311,9 @@ function BucketContent() {
         </MenuItem>
         <MenuItem onClick={() => {
           if (selectedObject) {
-            navigator.clipboard.writeText(selectedObject.key);
-            displaySuccess(`Copied key: ${selectedObject.key}`);
+            copyToClipboard(selectedObject.key)
+              .then(() => displaySuccess(`Copied key: ${selectedObject.key}`))
+              .catch((err) => displayError('Failed to copy key', String(err)));
           }
           handleMenuClose();
         }}>
@@ -1292,8 +1323,9 @@ function BucketContent() {
         <MenuItem onClick={() => {
           if (selectedObject) {
             const s3Uri = `s3://${bucketName}/${selectedObject.key}`;
-            navigator.clipboard.writeText(s3Uri);
-            displaySuccess(`Copied S3 URI: ${s3Uri}`);
+            copyToClipboard(s3Uri)
+              .then(() => displaySuccess(`Copied S3 URI: ${s3Uri}`))
+              .catch((err) => displayError('Failed to copy S3 URI', String(err)));
           }
           handleMenuClose();
         }}>

@@ -14,7 +14,8 @@ import {
 } from '@mui/icons-material';
 import { useAppStore, Tab as TabType } from '@/store/appStore';
 import { useProfileStore } from '@/store/profileStore';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
+import { useEffect } from 'react';
 
 const TAB_WIDTH = 140; // Fixed width for all tabs
 
@@ -22,9 +23,23 @@ export default function TabBar() {
   const { tabs, activeTabId, setActiveTab, removeTab, addTab } = useAppStore();
   const { activeProfileId } = useProfileStore();
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   // Don't show tabs during setup (no profile)
   const hasProfile = !!activeProfileId;
+
+  useEffect(() => {
+    const currentPath = pathname + (searchParams.toString() ? `?${searchParams.toString()}` : '');
+    const matchingTab = tabs.find((tab) => tab.path === currentPath);
+    if (matchingTab) {
+      if (matchingTab.id !== activeTabId) {
+        setActiveTab(matchingTab.id);
+      }
+    } else if (activeTabId !== null) {
+      setActiveTab(null);
+    }
+  }, [pathname, searchParams, tabs, activeTabId, setActiveTab]);
   
   // Hide entire TabBar when no profile exists
   if (!hasProfile) {
@@ -152,4 +167,3 @@ export default function TabBar() {
     </Box>
   );
 }
-

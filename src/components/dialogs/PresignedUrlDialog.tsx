@@ -24,7 +24,7 @@ import {
   AccessTime as TimeIcon,
 } from '@mui/icons-material';
 import { BaseDialog } from '../common/BaseDialog';
-import { objectApi } from '@/lib/tauri';
+import { copyToClipboard, objectApi } from '@/lib/tauri';
 
 interface PresignedUrlDialogProps {
   open: boolean;
@@ -127,7 +127,7 @@ export default function PresignedUrlDialog({
   const handleCopy = async () => {
     if (!generatedUrl) return;
     try {
-      await navigator.clipboard.writeText(generatedUrl);
+      await copyToClipboard(generatedUrl);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {

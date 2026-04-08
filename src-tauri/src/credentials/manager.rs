@@ -62,19 +62,11 @@ impl Profile {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Default)]
+#[serde(default)]
 struct ProfilesData {
     profiles: HashMap<String, Profile>,
     active_profile_id: Option<String>,
-}
-
-impl Default for ProfilesData {
-    fn default() -> Self {
-        Self {
-            profiles: HashMap::new(),
-            active_profile_id: None,
-        }
-    }
 }
 
 pub struct ProfileManager {
@@ -91,7 +83,7 @@ impl ProfileManager {
         let data = if profiles_path.exists() {
             log::info!("Found existing profiles file.");
             let content = std::fs::read_to_string(&profiles_path)?;
-            match serde_json::from_str(&content) {
+            match Self::load_profiles_data(&content) {
                 Ok(d) => {
                     log::info!("Successfully loaded profiles data.");
                     d
@@ -111,6 +103,72 @@ impl ProfileManager {
             data,
             keychain: super::KeychainStorage::new("brows3"),
         })
+    }
+
+    fn load_profiles_data(content: &str) -> std::result::Result<ProfilesData, serde_json::Error> {
+        if let Ok(data) = serde_json::from_str::<ProfilesData>(content) {
+            return Ok(Self::normalize_profiles_data(data));
+        }
+
+        if let Ok(profiles) = serde_json::from_str::<Vec<Profile>>(content) {
+            return Ok(Self::normalize_profiles_data(ProfilesData {
+                profiles: profiles
+                    .into_iter()
+                    .map(|profile| (profile.id.clone(), profile))
+                    .collect(),
+                active_profile_id: None,
+            }));
+        }
+
+        if let Ok(profiles) = serde_json::from_str::<HashMap<String, Profile>>(content) {
+            return Ok(Self::normalize_profiles_data(ProfilesData {
+                profiles,
+                active_profile_id: None,
+            }));
+        }
+
+        serde_json::from_str::<ProfilesData>(content).map(Self::normalize_profiles_data)
+    }
+
+    fn normalize_profiles_data(mut data: ProfilesData) -> ProfilesData {
+        let mut normalized_profiles = HashMap::with_capacity(data.profiles.len());
+        let mut first_profile_id: Option<String> = None;
+        let mut default_profile_id: Option<String> = None;
+
+        for (key, mut profile) in data.profiles.drain() {
+            if profile.id.is_empty() {
+                profile.id = if !key.is_empty() {
+                    key
+                } else {
+                    Uuid::new_v4().to_string()
+                };
+            }
+
+            if first_profile_id.is_none() {
+                first_profile_id = Some(profile.id.clone());
+            }
+            if profile.is_default && default_profile_id.is_none() {
+                default_profile_id = Some(profile.id.clone());
+            }
+
+            normalized_profiles.insert(profile.id.clone(), profile);
+        }
+
+        let mut active_profile_id = data.active_profile_id
+            .filter(|id| normalized_profiles.contains_key(id));
+
+        if active_profile_id.is_none() {
+            active_profile_id = default_profile_id.or(first_profile_id.clone());
+        }
+
+        for profile in normalized_profiles.values_mut() {
+            profile.is_default = active_profile_id.as_ref() == Some(&profile.id);
+        }
+
+        ProfilesData {
+            profiles: normalized_profiles,
+            active_profile_id,
+        }
     }
     
     fn save(&self) -> Result<()> {
@@ -282,7 +340,8 @@ impl ProfileManager {
 
 #[cfg(test)]
 mod tests {
-    use super::{CredentialType, Profile};
+    use super::{CredentialType, Profile, ProfileManager};
+    use std::collections::HashMap;
 
     #[test]
     fn manual_profile_deserializes_without_secret_in_json() {
@@ -330,5 +389,76 @@ mod tests {
             }
             _ => panic!("expected custom endpoint credentials"),
         }
+    }
+
+    #[test]
+    fn profiles_data_deserializes_without_active_profile_id() {
+        let json = r#"{
+            "profiles": {
+                "profile-1": {
+                    "id": "profile-1",
+                    "name": "MinIO",
+                    "credential_type": {
+                        "type": "CustomEndpoint",
+                        "endpoint_url": "http://localhost:9000",
+                        "access_key_id": "minio"
+                    },
+                    "region": "us-east-1",
+                    "is_default": true
+                }
+            }
+        }"#;
+
+        let data = ProfileManager::load_profiles_data(json).expect("profiles data should deserialize");
+        assert_eq!(data.active_profile_id.as_deref(), Some("profile-1"));
+        assert_eq!(data.profiles.len(), 1);
+    }
+
+    #[test]
+    fn profiles_data_deserializes_from_legacy_array() {
+        let json = r#"[
+            {
+                "id": "profile-1",
+                "name": "Legacy",
+                "credential_type": {
+                    "type": "Manual",
+                    "access_key_id": "AKIA123"
+                },
+                "region": "us-east-1",
+                "is_default": false
+            }
+        ]"#;
+
+        let data = ProfileManager::load_profiles_data(json).expect("legacy array should deserialize");
+        assert_eq!(data.active_profile_id.as_deref(), Some("profile-1"));
+        assert!(data.profiles.contains_key("profile-1"));
+    }
+
+    #[test]
+    fn normalize_profiles_data_repairs_missing_ids_and_default_flag() {
+        let mut profiles = HashMap::new();
+        profiles.insert(
+            "legacy-key".to_string(),
+            Profile {
+                id: String::new(),
+                name: "Legacy".to_string(),
+                credential_type: CredentialType::Environment,
+                region: None,
+                is_default: false,
+                created_at: None,
+                updated_at: None,
+            },
+        );
+
+        let data = ProfileManager::normalize_profiles_data(super::ProfilesData {
+            profiles,
+            active_profile_id: None,
+        });
+
+        assert_eq!(data.profiles.len(), 1);
+        assert_eq!(data.active_profile_id.as_deref(), Some("legacy-key"));
+        let profile = data.profiles.get("legacy-key").expect("profile should exist");
+        assert_eq!(profile.id, "legacy-key");
+        assert!(profile.is_default);
     }
 }

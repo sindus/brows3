@@ -39,6 +39,19 @@ const brandColors = {
 };
 
 const baseComponents: ThemeOptions['components'] = {
+  MuiCssBaseline: {
+    styleOverrides: {
+      html: {
+        scrollbarGutter: 'stable',
+      },
+      body: {
+        scrollbarWidth: 'thin',
+      },
+      '*': {
+        scrollbarWidth: 'thin',
+      },
+    },
+  },
   MuiButton: {
     styleOverrides: {
       root: {
@@ -72,6 +85,18 @@ const baseComponents: ThemeOptions['components'] = {
     defaultProps: {
       disableRipple: false,
     },
+  },
+};
+
+const baseCssBaselineStyles = {
+  html: {
+    scrollbarGutter: 'stable',
+  },
+  body: {
+    scrollbarWidth: 'thin',
+  },
+  '*': {
+    scrollbarWidth: 'thin',
   },
 };
 
@@ -128,6 +153,38 @@ export const lightTheme = createTheme({
   },
   components: {
     ...baseComponents,
+    MuiCssBaseline: {
+      styleOverrides: {
+        ...baseCssBaselineStyles,
+        html: {
+          scrollbarGutter: 'stable',
+          colorScheme: 'light',
+        },
+        body: {
+          scrollbarWidth: 'thin',
+          scrollbarColor: '#C1C7D0 #F3F4F6',
+        },
+        '*': {
+          scrollbarWidth: 'thin',
+          scrollbarColor: '#C1C7D0 #F3F4F6',
+        },
+        '*::-webkit-scrollbar': {
+          width: '10px',
+          height: '10px',
+        },
+        '*::-webkit-scrollbar-track': {
+          background: '#F3F4F6',
+        },
+        '*::-webkit-scrollbar-thumb': {
+          backgroundColor: '#C1C7D0',
+          borderRadius: '999px',
+          border: '2px solid #F3F4F6',
+        },
+        '*::-webkit-scrollbar-thumb:hover': {
+          backgroundColor: '#9CA3AF',
+        },
+      },
+    },
     MuiAppBar: {
       styleOverrides: {
         root: {
@@ -193,6 +250,38 @@ export const darkTheme = createTheme({
   },
   components: {
     ...baseComponents,
+    MuiCssBaseline: {
+      styleOverrides: {
+        ...baseCssBaselineStyles,
+        html: {
+          scrollbarGutter: 'stable',
+          colorScheme: 'dark',
+        },
+        body: {
+          scrollbarWidth: 'thin',
+          scrollbarColor: '#4B5563 #0F172A',
+        },
+        '*': {
+          scrollbarWidth: 'thin',
+          scrollbarColor: '#4B5563 #0F172A',
+        },
+        '*::-webkit-scrollbar': {
+          width: '10px',
+          height: '10px',
+        },
+        '*::-webkit-scrollbar-track': {
+          background: '#0F172A',
+        },
+        '*::-webkit-scrollbar-thumb': {
+          backgroundColor: '#4B5563',
+          borderRadius: '999px',
+          border: '2px solid #0F172A',
+        },
+        '*::-webkit-scrollbar-thumb:hover': {
+          backgroundColor: '#6B7280',
+        },
+      },
+    },
     MuiAppBar: {
       styleOverrides: {
         root: {

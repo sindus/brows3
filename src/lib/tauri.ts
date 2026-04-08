@@ -50,6 +50,21 @@ let cacheInvalidator: (() => void) | null = null;
 export const setCacheInvalidator = (fn: () => void) => { cacheInvalidator = fn; };
 const invalidateCache = () => { if (cacheInvalidator) cacheInvalidator(); };
 
+export const copyToClipboard = async (text: string): Promise<void> => {
+  if (isTauri()) {
+    const { writeText } = await import('@tauri-apps/plugin-clipboard-manager');
+    await writeText(text);
+    return;
+  }
+
+  if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  throw new Error('Clipboard API is not available');
+};
+
 // Profile types matching Rust backend
 export type CredentialType = 
   | { type: 'Environment' }
