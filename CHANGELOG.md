@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Profile Startup Race**: Credentials/profile state is now initialized before frontend commands run, preventing empty-profile startup races on slower launches.
 - **macOS Distribution Path**: Added ad-hoc signing fallback in Tauri config and optional Apple signing/notarization credential support in CI to reduce "app is damaged" install failures on macOS releases.
 - **Release Workflow Looping**: Prevented bot-authored `update.json` commits from retriggering the publish workflow and added retries/fail-fast checks around release asset discovery.
+- **CI Release Stability**: macOS CI now builds the updater-compatible app bundle directly instead of DMG packaging, and GitHub Actions dependencies were updated for the Node 24 runner transition.
 - **Presigned URL Validation**: Prevented invalid expiry values above the AWS 7-day limit from attempting a presign request.
 - **Release Workflow Diagnostics**: Improved signing-key checks and asset matching logs in the release workflow to make updater failures easier to diagnose.
 - **Updater Key Alignment**: Updated the Tauri updater public key to match the regenerated signing key used for releases.
