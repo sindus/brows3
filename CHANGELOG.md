@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.33] - 2026-04-08
+
+### Fixed
+- **Cross-Platform Installer Reliability**: Windows installers now bundle the WebView2 runtime offline, reducing install failures on fresh systems.
+- **Release Pipeline Stability**: Reworked GitHub release publishing to upload generated bundles directly and keep the shipped version aligned with the repo version instead of the workflow run number.
+- **Updater Signing Alignment**: Updated the Tauri updater public key to match the newly rotated release signing key used in GitHub Actions.
+- **Startup Update Flow**: Prevented automatic update installation during app launch so updater checks no longer race the UI or installer flow.
+- **Windows Profile Persistence**: Replaced the failing save path on Windows with a cross-platform-safe write strategy so saved profiles are not lost on restart.
+- **Profile Secret Preservation**: Editing an existing manual or custom-endpoint profile now preserves previously saved secrets when the edit payload omits them.
+- **Default Profile State Sync**: Active/default profile flags now stay consistent after add, edit, delete, and restart flows.
+
 ## [0.2.32] - 2026-04-08
 
 ### Added
