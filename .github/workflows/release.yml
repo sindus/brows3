@@ -64,9 +64,14 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Prepare App Store Connect API key (macOS only)
-        if: matrix.platform == 'macos-latest' && secrets.APPLE_API_PRIVATE_KEY != '' && secrets.APPLE_API_KEY != ''
+        if: matrix.platform == 'macos-latest'
         shell: bash
         run: |
+          if [ -z "${{ secrets.APPLE_API_PRIVATE_KEY }}" ] || [ -z "${{ secrets.APPLE_API_KEY }}" ]; then
+            echo "App Store Connect API key not configured, skipping key file preparation"
+            exit 0
+          fi
+
           mkdir -p private_keys
           printf '%s' "${{ secrets.APPLE_API_PRIVATE_KEY }}" > "private_keys/AuthKey_${{ secrets.APPLE_API_KEY }}.p8"
           echo "APPLE_API_KEY_PATH=$PWD/private_keys/AuthKey_${{ secrets.APPLE_API_KEY }}.p8" >> $GITHUB_ENV
