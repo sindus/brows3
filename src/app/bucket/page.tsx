@@ -274,6 +274,15 @@ function BucketContent() {
      return data;
   }, [data, searchResults, deferredSearchQuery, prefix, isDeepSearch]);
 
+  const currentObjectSizeMap = useMemo(
+    () => new Map((data?.objects || []).map((obj) => [obj.key, obj.size])),
+    [data]
+  );
+  const currentFolderKeys = useMemo(
+    () => new Set(data?.common_prefixes || []),
+    [data]
+  );
+
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -674,18 +683,18 @@ function BucketContent() {
         
         // Process batch items concurrently
         await Promise.all(batch.map(async (key) => {
-          const isSelectedObject = displayData?.objects.find(o => o.key === key);
-          const isSelectedFolder = displayData?.common_prefixes?.includes(key);
+          const selectedObjectSize = currentObjectSizeMap.get(key);
+          const isSelectedFolder = currentFolderKeys.has(key);
           
           if (isSelectedFolder) {
             const folderName = key.split('/').filter(Boolean).pop() || 'folder';
             const localPath = `${downloadDir}/${folderName}`;
             await transferApi.queueFolderDownload(bucketName || '', bucketRegion, key, localPath);
             count++;
-          } else if (isSelectedObject) {
+          } else if (selectedObjectSize !== undefined) {
             const fileName = key.split('/').pop() || 'file';
             const localPath = `${downloadDir}/${fileName}`;
-            await transferApi.queueDownload(bucketName || '', bucketRegion, key, localPath, isSelectedObject.size);
+            await transferApi.queueDownload(bucketName || '', bucketRegion, key, localPath, selectedObjectSize);
             count++;
           }
         }));
@@ -794,7 +803,7 @@ function BucketContent() {
   const handleDownload = async () => {
     if (!bucketName || !selectedObject) return;
     const target = selectedObject;
-    const selectedFile = displayData?.objects.find((obj) => obj.key === target.key);
+    const selectedFileSize = currentObjectSizeMap.get(target.key);
     handleMenuClose();
     
     try {
@@ -827,7 +836,7 @@ function BucketContent() {
               bucketRegion, 
               target.key, 
               savePath, 
-              selectedFile?.size || 0
+              selectedFileSize || 0
           );
           displaySuccess('Download queued', '/downloads');
         }
@@ -1181,10 +1190,10 @@ function BucketContent() {
           }
         }}
         onDownload={async (key) => {
+          const objectSize = currentObjectSizeMap.get(key) || 0;
           const filename = key.split('/').pop() || 'download';
           const savePath = await save({ defaultPath: filename, title: 'Save file as' });
           if (savePath && bucketName) {
-            const objectSize = displayData?.objects.find((obj) => obj.key === key)?.size || 0;
             const jobId = await transferApi.queueDownload(bucketName, bucketRegion, key, savePath, objectSize);
             // Add to transfer store so it shows in the panel
             addJob({
