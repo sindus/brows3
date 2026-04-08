@@ -414,13 +414,18 @@ function GroupRow({ group }: { group: any }) {
     const activeCount = items.filter(j => j.status === 'InProgress' || j.status === 'Pending').length;
     const failedCount = items.filter(j => typeof j.status === 'object' && 'Failed' in j.status).length;
     const cancelledCount = items.filter(j => j.status === 'Cancelled').length;
+    const isAllTerminal = items.every((j) =>
+        j.status === 'Completed' ||
+        j.status === 'Cancelled' ||
+        (typeof j.status === 'object' && 'Failed' in j.status)
+    );
     
     // Date calculations
     const startTimes = items.map(j => j.created_at).filter(t => t > 0);
     const startTime = startTimes.length > 0 ? Math.min(...startTimes) : 0;
     
-    const endTimes = items.map(j => j.finished_at || 0);
-    const endTime = isAllCompleted ? Math.max(...endTimes) : 0;
+    const endTimes = items.map(j => j.finished_at || 0).filter((t) => t > 0);
+    const endTime = isAllTerminal && endTimes.length > 0 ? Math.max(...endTimes) : 0;
     
     const startDateStr = startTime > 0 ? new Date(startTime).toLocaleString() : '—';
     const finishedDateStr = endTime > 0 ? new Date(endTime).toLocaleString() : '—';
