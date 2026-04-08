@@ -10,6 +10,16 @@ Navigating through buckets with millions of objects is now as fast as browsing y
 
 Brows3 is built for people searching for a fast **S3 browser**, **AWS S3 client**, **S3 bucket explorer**, **S3 file manager**, or **S3-compatible storage browser** for providers like **MinIO**, **Cloudflare R2**, **Wasabi**, and **DigitalOcean Spaces**.
 
+## Who It Is For
+
+Brows3 is a strong fit if you need:
+
+- a desktop S3 browser for large buckets
+- a faster S3 explorer than generic cloud-storage tools
+- an open-source S3 client for AWS S3 or S3-compatible storage
+- a GUI for MinIO, Cloudflare R2, Wasabi, or DigitalOcean Spaces
+- a developer-focused S3 file manager with editing, search, and transfer visibility
+
 
 ## Why Brows3?
 
@@ -103,6 +113,26 @@ People often discover Brows3 while searching for:
 - R2 browser
 
 Brows3 is focused on fast bucket navigation, deep search, and large-list performance rather than generic cloud-storage support across many unrelated providers.
+
+| If you are searching for... | Brows3 positioning |
+| :--- | :--- |
+| `Cyberduck alternative for S3` | More focused on S3/object-storage workflows and large bucket navigation |
+| `S3 Browser alternative` | Cross-platform open-source desktop option with Rust/Tauri backend |
+| `MinIO client` | Works for S3-compatible endpoints through Custom S3 mode |
+| `Cloudflare R2 browser` | Relevant when using R2 through S3-compatible credentials |
+| `fast S3 desktop client` | Core product focus is speed, indexing, and deep recursive search |
+
+## GitHub Setup
+
+To improve discoverability inside GitHub itself, set the repository description and topics in the repo settings.
+
+Suggested repository description:
+
+`Fast open-source S3 browser, S3 explorer, and desktop client for Amazon S3, MinIO, Cloudflare R2, Wasabi, and other S3-compatible storage.`
+
+Suggested topics:
+
+`s3`, `amazon-s3`, `s3-browser`, `s3-client`, `s3-explorer`, `object-storage`, `minio`, `cloudflare-r2`, `wasabi`, `digitalocean-spaces`, `tauri`, `rust`
 
 ## Installation
 

@@ -16,7 +16,8 @@ try {
   
   if (match && match[1]) {
     // Trim and clean up
-    console.log(match[1].trim());
+    const notes = match[1].trim();
+    console.log(`Brows3 ${version} release notes\n\n${notes}`);
   } else {
     console.error(`Could not find release notes for version ${version}`);
     process.exit(1);
