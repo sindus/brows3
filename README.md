@@ -9,7 +9,7 @@
 
 Navigating through buckets with millions of objects is now as fast as browsing your local file system.
 
-### 🌐 [Official Website: brows3.app](https://www.brows3.app/)
+**Website:** <a href="https://www.brows3.app/" target="_blank">brows3.app</a>
 
 Brows3 is built for people searching for a fast **S3 browser**, **AWS S3 client**, **S3 bucket explorer**, **S3 file manager**, or **S3-compatible storage browser** for providers like **MinIO**, **Cloudflare R2**, **Wasabi**, and **DigitalOcean Spaces**.
 
