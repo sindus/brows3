@@ -4,6 +4,25 @@ use crate::error::Result;
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
+fn is_likely_binary_text_mismatch(bytes: &[u8]) -> bool {
+    if bytes.is_empty() {
+        return false;
+    }
+
+    let mut control_count = 0usize;
+    for &byte in bytes {
+        if byte == 0 {
+            return true;
+        }
+
+        if byte < 0x20 && !matches!(byte, b'\n' | b'\r' | b'\t' | 0x0c) {
+            control_count += 1;
+        }
+    }
+
+    control_count.saturating_mul(100) > bytes.len().saturating_mul(5)
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ListObjectsResult {
     pub objects: Vec<S3Object>,
@@ -580,8 +599,20 @@ pub async fn get_object_content(
 
     let body = response.body.collect().await
         .map_err(|e| crate::error::AppError::S3Error(e.to_string()))?;
-    
-    let content = String::from_utf8_lossy(&body.into_bytes()).to_string();
+
+    let bytes = body.into_bytes().to_vec();
+    let content = String::from_utf8(bytes.clone()).map_err(|_| {
+        crate::error::AppError::InvalidContent(
+            "This object is not readable as UTF-8 text. Download it to inspect locally.".to_string(),
+        )
+    })?;
+
+    if is_likely_binary_text_mismatch(&bytes) {
+        return Err(crate::error::AppError::InvalidContent(
+            "This object appears to contain binary data and cannot be edited safely in the text editor. Download it to inspect locally.".to_string(),
+        ));
+    }
+
     Ok(content)
 }
 

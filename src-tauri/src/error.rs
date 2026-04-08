@@ -31,6 +31,9 @@ pub enum AppError {
     
     #[error("Configuration error: {0}")]
     ConfigError(String),
+
+    #[error("Invalid content: {0}")]
+    InvalidContent(String),
 }
 
 impl From<std::io::Error> for AppError {
