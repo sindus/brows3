@@ -18,6 +18,7 @@ import { copyToClipboard, objectApi } from '@/lib/tauri';
 import Editor, { OnMount } from '@monaco-editor/react';
 import { toast } from '@/store/toastStore';
 import { BaseDialog } from '../common/BaseDialog';
+import { getEditorLanguage, getObjectKind, getObjectName } from '@/lib/objectCapabilities';
 
 interface ObjectPreviewDialogProps {
   open: boolean;
@@ -29,80 +30,6 @@ interface ObjectPreviewDialogProps {
   onSave?: () => void;
   startInEditMode?: boolean;
 }
-
-// Get file extension
-const getExtension = (filename: string): string => {
-  const parts = filename.split('.');
-  if (parts.length < 2) return '';
-  return parts.pop()?.toLowerCase() || '';
-};
-
-// Check if file is an image
-const isImage = (filename: string): boolean => {
-  const ext = getExtension(filename);
-  return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'ico', 'bmp', 'tiff'].includes(ext);
-};
-
-// Check if file is video
-const isVideo = (filename: string): boolean => {
-  const ext = getExtension(filename);
-  return ['mp4', 'webm', 'ogg', 'mov', 'mkv', 'avi'].includes(ext);
-};
-
-// Check if file is PDF
-const isPdf = (filename: string): boolean => {
-  return getExtension(filename) === 'pdf';
-};
-
-// Check if file is text/editable
-const isTextFile = (filename: string): boolean => {
-  const ext = getExtension(filename);
-  const textExts = [
-    'txt', 'md', 'markdown', 'json', 'xml', 'html', 'css', 'scss', 'less', 'sass', 
-    'js', 'ts', 'jsx', 'tsx', 'py', 'rb', 'php', 'java', 'c', 'cpp', 'h', 'hpp', 'cs', 
-    'go', 'rs', 'swift', 'kt', 'kts', 'scala', 'groovy', 'pl', 'sh', 'bash', 'zsh', 'fish', 
-    'bat', 'cmd', 'ps1', 'yml', 'yaml', 'toml', 'ini', 'conf', 'cfg', 'env', 'properties', 
-    'gradle', 'sql', 'prisma', 'graphql', 'gql', 'log', 'csv', 'tsv', 'lock', 'gitignore', 
-    'dockerfile', 'makefile', 'cmake', 'tf', 'hcl', 'lua', 'dart', 'r', 'ex', 'exs'
-  ];
-  return textExts.includes(ext) || filename.startsWith('.') || ext === ''; // Treat no-extension files as text usually
-};
-
-const getLanguage = (filename: string): string => {
-    const ext = getExtension(filename);
-    switch(ext) {
-        case 'js': case 'jsx': return 'javascript';
-        case 'ts': case 'tsx': return 'typescript';
-        case 'py': return 'python';
-        case 'rs': return 'rust';
-        case 'md': case 'markdown': return 'markdown';
-        case 'sh': case 'bash': case 'zsh': case 'fish': return 'shell';
-        case 'yml': case 'yaml': return 'yaml';
-        case 'json': case 'lock': return 'json';
-        case 'xml': case 'svg': return 'xml';
-        case 'html': return 'html';
-        case 'css': case 'scss': case 'less': case 'sass': return 'css';
-        case 'sql': return 'sql';
-        case 'java': return 'java';
-        case 'cpp': case 'c': case 'h': case 'hpp': return 'cpp';
-        case 'cs': return 'csharp';
-        case 'go': return 'go';
-        case 'dockerfile': return 'dockerfile';
-        case 'lua': return 'lua';
-        case 'rb': return 'ruby';
-        case 'php': return 'php';
-        case 'ini': case 'conf': case 'cfg': case 'properties': case 'env': case 'toml': return 'ini';
-        case 'bat': case 'cmd': case 'ps1': return 'bat';
-        case 'kt': case 'kts': return 'kotlin';
-        case 'swift': return 'swift';
-        case 'scala': return 'scala';
-        case 'pl': return 'perl';
-        case 'graphql': case 'gql': return 'graphql';
-        case 'tf': case 'hcl': return 'hcl'; // Monaco might need plugin for hcl, fallback to plaintext if not built-in, but often maps to ruby or similar highlighting
-        case 'r': return 'r';
-        default: return 'plaintext';
-    }
-};
 
 export default function ObjectPreviewDialog({
   open,
@@ -119,6 +46,7 @@ export default function ObjectPreviewDialog({
   const [error, setError] = useState<string | null>(null);
   const [content, setContent] = useState<string>('');
   const [editedContent, setEditedContent] = useState<string>('');
+  const [contentType, setContentType] = useState<string | null>(null);
   const [presignedUrl, setPresignedUrl] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(startInEditMode);
   const [isSaving, setIsSaving] = useState(false);
@@ -131,12 +59,12 @@ export default function ObjectPreviewDialog({
   const loadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pdfLoadingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const filename = objectKey.split('/').pop() || objectKey;
-  const ext = getExtension(filename);
-  const isImageFile = isImage(filename);
-  const isVideoFile = isVideo(filename);
-  const isPdfFile = isPdf(filename);
-  const isText = isTextFile(filename);
+  const filename = getObjectName(objectKey);
+  const objectKind = getObjectKind(filename, contentType);
+  const isImageFile = objectKind === 'image';
+  const isVideoFile = objectKind === 'video';
+  const isPdfFile = objectKind === 'pdf';
+  const isText = objectKind === 'text';
   
   // Compute whether content has actually changed from original
   // Uses Monaco's version ID for accurate undo/redo tracking when available
@@ -155,6 +83,7 @@ export default function ObjectPreviewDialog({
       setError(null);
       setContent('');
       setEditedContent('');
+      setContentType(null);
       setPresignedUrl(null);
       setIsEditing(startInEditMode); // Reset edit mode based on prop
       // Reset version tracking for fresh content
@@ -169,13 +98,7 @@ export default function ObjectPreviewDialog({
         pdfLoadingTimeoutRef.current = null;
       }
 
-      // 2MB Limit check for text files
       const MAX_PREVIEW_SIZE = 2 * 1024 * 1024; // 2MB
-      if (isText && objectSize && objectSize > MAX_PREVIEW_SIZE) {
-          setIsLoading(false);
-          setError(`File is too large to preview (${(objectSize / 1024 / 1024).toFixed(2)} MB). Please download to view locally.`);
-          return;
-      }
 
       // Safety timeout to prevent infinite spinner
       loadTimeoutRef.current = setTimeout(() => {
@@ -187,10 +110,27 @@ export default function ObjectPreviewDialog({
       }, 15000); 
 
       try {
-        if (isImageFile || isVideoFile || isPdfFile) {
+        let resolvedContentType: string | null = null;
+        try {
+          const metadata = await objectApi.getObjectMetadata(bucketName, bucketRegion, objectKey);
+          resolvedContentType = metadata.content_type;
+          if (!cancelled && requestId === loadRequestIdRef.current) {
+            setContentType(metadata.content_type);
+          }
+        } catch (metadataErr) {
+          console.warn('Failed to load object metadata, falling back to filename-based detection:', metadataErr);
+        }
+
+        const resolvedKind = getObjectKind(filename, resolvedContentType);
+        if (resolvedKind === 'text' && objectSize && objectSize > MAX_PREVIEW_SIZE) {
+          setError(`File is too large to preview (${(objectSize / 1024 / 1024).toFixed(2)} MB). Please download to view locally.`);
+          return;
+        }
+
+        if (resolvedKind === 'image' || resolvedKind === 'video' || resolvedKind === 'pdf') {
           // Get presigned URL for preview
-          if (isImageFile) setIsImageRendering(true);
-          if (isPdfFile) {
+          if (resolvedKind === 'image') setIsImageRendering(true);
+          if (resolvedKind === 'pdf') {
              setIsPdfLoading(true);
              pdfLoadingTimeoutRef.current = setTimeout(() => {
                if (!cancelled && requestId === loadRequestIdRef.current) {
@@ -202,7 +142,7 @@ export default function ObjectPreviewDialog({
           if (!cancelled && requestId === loadRequestIdRef.current) {
             setPresignedUrl(url);
           }
-        } else if (isText) {
+        } else if (resolvedKind === 'text') {
           // Get text content
           const textContent = await objectApi.getObjectContent(bucketName, bucketRegion, objectKey);
           
@@ -211,6 +151,8 @@ export default function ObjectPreviewDialog({
             setContent(textContent || '');
             setEditedContent(textContent || '');
           }
+        } else {
+          setError('This object is not previewable in the app. Please download it to inspect locally.');
         }
       } catch (err) {
         console.error("Failed to load object content:", err);
@@ -242,7 +184,7 @@ export default function ObjectPreviewDialog({
         pdfLoadingTimeoutRef.current = null;
       }
     };
-  }, [open, objectKey, bucketName, bucketRegion, isImageFile, isVideoFile, isPdfFile, isText, objectSize]);
+  }, [open, objectKey, bucketName, bucketRegion, objectSize, startInEditMode, filename]);
 
   const handleSave = async () => {
     if (!isEditing) return;
@@ -475,7 +417,7 @@ export default function ObjectPreviewDialog({
                <Box sx={{ flex: 1, border: '1px solid', borderColor: 'divider', borderRadius: 0.5, overflow: 'hidden' }}>
                  <Editor 
                     height="100%"
-                    defaultLanguage={getLanguage(filename)}
+                    defaultLanguage={getEditorLanguage(filename, contentType)}
                     value={isEditing ? editedContent : content}
                     options={{ 
                         readOnly: !isEditing, 
@@ -507,7 +449,7 @@ export default function ObjectPreviewDialog({
             {!isImageFile && !isVideoFile && !isPdfFile && !isText && (
               <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', p: 4 }}>
                 <Typography color="text.secondary" variant="body1" sx={{ fontWeight: 500 }}>
-                  Preview not available for this file type ({ext || 'unknown'})
+                  Preview not available for this file type
                 </Typography>
               </Box>
             )}

@@ -76,6 +76,7 @@ import { useTabStore } from '@/store/tabStore';
 import { useProfileStore } from '@/store/profileStore';
 import PropertiesDialog from '@/components/dialogs/PropertiesDialog';
 import ObjectPreviewDialog from '@/components/dialogs/ObjectPreviewDialog';
+import { canObjectBeEdited, getObjectName } from '@/lib/objectCapabilities';
 import PresignedUrlDialog from '@/components/dialogs/PresignedUrlDialog';
 import { VirtualizedObjectTable } from '@/components/common/VirtualizedObjectTable';
 import { toast } from '@/store/toastStore';
@@ -1276,7 +1277,7 @@ function BucketContent() {
             Download
           </MenuItem>
         )}
-        {!selectedObject?.isFolder && selectedObject && (selectedObject.key.split('.').pop() || '').match(/^(txt|md|json|xml|html|css|js|ts|py|yaml|yml|log|csv)$/) && (
+        {!selectedObject?.isFolder && selectedObject && canObjectBeEdited(getObjectName(selectedObject.key)) && (
           <MenuItem onClick={() => {
             if (selectedObject) {
               setStartInEditMode(true);

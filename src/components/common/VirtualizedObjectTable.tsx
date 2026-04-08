@@ -34,6 +34,7 @@ import { TableVirtuoso, type TableComponents } from 'react-virtuoso';
 import { S3Object } from '@/lib/tauri';
 import { formatSize } from '@/lib/utils';
 import { StyledCheckbox } from './StyledCheckbox';
+import { canObjectBeEdited, canObjectBePreviewed } from '@/lib/objectCapabilities';
 
 // Get extension - simple and fast
 const getExt = (name: string): string => {
@@ -104,28 +105,6 @@ const getIcon = (name: string, isFolder: boolean): React.ReactNode => {
   const ext = getExt(name);
   return ICON_MAP[ext] || DEFAULT_FILE_ICON;
 };
-
-// Previewable extensions
-const PREVIEW_EXTS = new Set([
-  'jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico', 'tiff', 
-  'mp4', 'webm', 'ogg', 'mov', 'avi', 'mkv', 
-  'pdf',
-  'txt', 'md', 'markdown', 'json', 'xml', 'html', 'css', 'scss', 'less', 'sass', 
-  'js', 'ts', 'jsx', 'tsx', 'py', 'rb', 'php', 'java', 'c', 'cpp', 'h', 'hpp', 'cs', 
-  'go', 'rs', 'swift', 'kt', 'kts', 'scala', 'groovy', 'pl', 'sh', 'bash', 'zsh', 'fish', 
-  'bat', 'cmd', 'ps1', 'yml', 'yaml', 'toml', 'ini', 'conf', 'cfg', 'env', 'properties', 
-  'gradle', 'sql', 'prisma', 'graphql', 'gql', 'log', 'csv', 'tsv', 'lock', 'gitignore', 
-  'dockerfile', 'makefile', 'cmake', 'tf', 'hcl', 'lua', 'dart', 'r', 'ex', 'exs'
-]);
-
-const EDIT_EXTS = new Set([
-  'txt', 'md', 'markdown', 'json', 'xml', 'html', 'css', 'scss', 'less', 'sass', 
-  'js', 'ts', 'jsx', 'tsx', 'py', 'rb', 'php', 'java', 'c', 'cpp', 'h', 'hpp', 'cs', 
-  'go', 'rs', 'swift', 'kt', 'kts', 'scala', 'groovy', 'pl', 'sh', 'bash', 'zsh', 'fish', 
-  'bat', 'cmd', 'ps1', 'yml', 'yaml', 'toml', 'ini', 'conf', 'cfg', 'env', 'properties', 
-  'gradle', 'sql', 'prisma', 'graphql', 'gql', 'log', 'csv', 'tsv', 'lock', 'gitignore', 
-  'dockerfile', 'makefile', 'cmake', 'tf', 'hcl', 'lua', 'dart', 'r', 'ex', 'exs'
-]);
 
 // Row data type
 interface RowData {
@@ -210,8 +189,8 @@ const RowContent = memo(function RowContent({
   onMenuOpen: (event: React.MouseEvent<HTMLElement>, key: string, isFolder: boolean) => void;
 }) {
   const ext = getExt(row.name);
-  const canPreview = !row.isFolder && PREVIEW_EXTS.has(ext);
-  const canEdit = !row.isFolder && EDIT_EXTS.has(ext);
+  const canPreview = !row.isFolder && canObjectBePreviewed(row.name);
+  const canEdit = !row.isFolder && canObjectBeEdited(row.name);
 
   // Debounce checkbox to prevent rapid clicking
   const handleCheckboxChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
