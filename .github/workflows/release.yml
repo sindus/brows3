@@ -262,13 +262,13 @@ jobs:
             local SIG_PATTERN=$3
             
             # Find the asset URL
-            ASSET_URL=$(echo "$RELEASE_INFO" | jq -r ".assets[] | select(.name | test(\"$PATTERN\"; \"i\")) | .browser_download_url" | head -1)
+            ASSET_URL=$(echo "$RELEASE_INFO" | jq -r --arg pattern "$PATTERN" '.assets[] | select(.name | test($pattern; "i")) | .browser_download_url' | head -1)
             
             if [ -n "$ASSET_URL" ] && [ "$ASSET_URL" != "null" ]; then
               echo "Found $PLATFORM asset: $(basename "$ASSET_URL")"
               
               # Download the signature
-              SIG_URL=$(echo "$RELEASE_INFO" | jq -r ".assets[] | select(.name | test(\"$SIG_PATTERN\"; \"i\")) | .browser_download_url" | head -1)
+              SIG_URL=$(echo "$RELEASE_INFO" | jq -r --arg pattern "$SIG_PATTERN" '.assets[] | select(.name | test($pattern; "i")) | .browser_download_url' | head -1)
               
               if [ -n "$SIG_URL" ] && [ "$SIG_URL" != "null" ]; then
                 SIG=$(curl -sL "$SIG_URL")
