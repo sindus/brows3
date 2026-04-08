@@ -11,6 +11,7 @@ import { GitHub as GitHubIcon } from '@mui/icons-material';
 import { getVersion } from '@tauri-apps/api/app';
 import { useState, useEffect } from 'react';
 import { BaseDialog } from '../common/BaseDialog';
+import { isTauri } from '@/lib/tauri';
 
 interface AboutDialogProps {
   open: boolean;
@@ -22,9 +23,16 @@ export default function AboutDialog({ open, onClose }: AboutDialogProps) {
   const theme = useTheme();
 
   useEffect(() => {
-    if (open) {
-      getVersion().then(setVersion).catch(() => setVersion('Unknown'));
+    if (!open) {
+      return;
     }
+
+    if (!isTauri()) {
+      setVersion('Web');
+      return;
+    }
+
+    getVersion().then(setVersion).catch(() => setVersion('Unknown'));
   }, [open]);
 
   return (
@@ -132,4 +140,3 @@ export default function AboutDialog({ open, onClose }: AboutDialogProps) {
     </BaseDialog>
   );
 }
-

@@ -31,7 +31,6 @@ import { useProfileStore } from '@/store/profileStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import ProfileDialog from '@/components/profile/ProfileDialog';
 import ToastContainer from '@/components/common/ToastContainer';
-import { check } from '@tauri-apps/plugin-updater';
 import { toast } from '@/store/toastStore';
 import { profileApi, transferApi } from '@/lib/tauri';
 import { useClipboardShortcuts } from '@/hooks/useClipboardShortcuts';

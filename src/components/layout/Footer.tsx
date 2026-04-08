@@ -16,6 +16,7 @@ import { useBuckets } from '@/hooks/useBuckets';
 import { useMemo, useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { getVersion } from '@tauri-apps/api/app';
+import { isTauri } from '@/lib/tauri';
 
 function formatCacheAge(ms: number | null): string {
   if (ms === null) return '';
@@ -37,6 +38,11 @@ export default function Footer() {
   
   // Fetch app version from Tauri
   useEffect(() => {
+    if (!isTauri()) {
+      setAppVersion('web');
+      return;
+    }
+
     getVersion().then(v => setAppVersion(v)).catch(() => setAppVersion('dev'));
   }, []);
   
@@ -152,4 +158,3 @@ export default function Footer() {
     </Box>
   );
 }
-
