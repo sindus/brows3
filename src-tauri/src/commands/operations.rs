@@ -4,6 +4,7 @@ use crate::error::Result;
 use aws_sdk_s3::primitives::ByteStream;
 use tauri::State;
 use std::path::Path;
+use std::collections::HashSet;
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
 
@@ -104,6 +105,13 @@ pub async fn get_object(
         .send()
         .await
         .map_err(|e| crate::error::AppError::S3Error(e.to_string()))?;
+
+    if let Some(parent) = Path::new(&local_path).parent() {
+        if !parent.as_os_str().is_empty() {
+            tokio::fs::create_dir_all(parent).await
+                .map_err(|e| crate::error::AppError::IoError(e.to_string()))?;
+        }
+    }
 
     // Create local file
     let mut file = File::create(&local_path).await
@@ -234,6 +242,7 @@ pub async fn copy_object(
         }
         
         log::info!("Found {} objects to copy in folder", all_keys.len());
+        let has_folder_marker = all_keys.iter().any(|key| key == &source_key);
         
         // Copy each object individually
         for key in &all_keys {
@@ -253,18 +262,24 @@ pub async fn copy_object(
             ).await?;
         }
         
-        // Also copy the folder marker itself (empty object)
-        copy_single_object(
-            &source_bucket,
-            &source_key,
-            &destination_bucket,
-            destination_region,
-            &destination_key,
-            &active_profile,
-            &s3_state,
-        ).await?;
+        // Preserve explicitly-created empty folders without duplicating an existing marker.
+        if !has_folder_marker {
+            let destination_marker = if destination_key.ends_with('/') {
+                destination_key
+            } else {
+                format!("{}/", destination_key)
+            };
+            put_object(
+                destination_bucket.clone(),
+                destination_region,
+                destination_marker,
+                None,
+                profile_state.clone(),
+                s3_state.clone(),
+            ).await?;
+        }
         
-        log::info!("Recursive folder copy completed: {} objects copied", all_keys.len() + 1);
+        log::info!("Recursive folder copy completed: {} objects copied", all_keys.len());
         Ok(())
     } else {
         // Single file copy
@@ -441,9 +456,14 @@ pub async fn move_object(
         drop(profile_manager);
         
         // Get client for listing source bucket
+        let source_region_resolved = {
+            let s3_manager = s3_state.read().await;
+            s3_manager.get_bucket_region(&source_bucket)
+        }.or(source_region.clone());
+
         let client = {
             let mut s3_manager = s3_state.write().await;
-            if let Some(ref r) = source_region {
+            if let Some(ref r) = source_region_resolved {
                 s3_manager.get_client_for_region(&active_profile, r).await?.clone()
             } else {
                 s3_manager.get_client(&active_profile).await?.clone()
@@ -481,6 +501,10 @@ pub async fn move_object(
             }
         }
         
+        let unique_keys: HashSet<String> = all_keys.into_iter().collect();
+        let mut all_keys: Vec<String> = unique_keys.into_iter().collect();
+        all_keys.sort();
+
         // Move each object individually
         for key in &all_keys {
             // Calculate destination key by replacing source prefix with destination prefix
@@ -490,7 +514,7 @@ pub async fn move_object(
             // Copy
             copy_object(
                 source_bucket.clone(),
-                source_region.clone(),
+                source_region_resolved.clone(),
                 key.clone(),
                 destination_bucket.clone(),
                 destination_region.clone(),
@@ -504,7 +528,7 @@ pub async fn move_object(
         if !all_keys.is_empty() {
             delete_objects(
                 source_bucket,
-                source_region,
+                source_region_resolved,
                 all_keys,
                 profile_state,
                 s3_state
