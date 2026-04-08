@@ -9,8 +9,9 @@ use std::sync::Arc;
 use tauri::{AppHandle, Manager};
 use tokio::sync::RwLock;
 
-/// Initialize the credentials manager and register it as app state
-pub async fn init<R: tauri::Runtime>(app: &AppHandle<R>) -> Result<()> {
+/// Initialize the credentials manager and register it as app state.
+/// This must happen during Tauri setup before frontend commands run.
+pub fn init<R: tauri::Runtime>(app: &AppHandle<R>) -> Result<()> {
     let config_dir = app
         .path()
         .app_config_dir()

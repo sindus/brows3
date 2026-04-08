@@ -117,13 +117,8 @@ pub fn run() {
             
             log::info!("Brows3 starting up...");
             
-            // Initialize credentials manager
-            let app_handle = app.handle().clone();
-            tauri::async_runtime::spawn(async move {
-                if let Err(e) = credentials::init(&app_handle).await {
-                    log::error!("Failed to initialize credentials manager: {}", e);
-                }
-            });
+            // Initialize credentials manager synchronously before any profile commands can run.
+            credentials::init(&app.handle())?;
             
             // Show the main window after initialization to prevent white flash
             if let Some(window) = app.get_webview_window("main") {

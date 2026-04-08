@@ -170,7 +170,7 @@ This usually means the build was downloaded through a browser but was not notari
 sudo xattr -rd com.apple.quarantine /Applications/Brows3.app
 ```
 
-Releases can now use Apple signing/notarization credentials when configured in CI; unsigned community builds may still need the quarantine-removal step above. For more details, see our [macOS Troubleshooting Guide](docs/MACOS_TROUBLESHOOTING.md).
+Releases can now use Apple signing/notarization credentials when configured in CI; unsigned community builds may still need the quarantine-removal step above. For more details, see our [macOS Troubleshooting Guide](docs/MACOS_TROUBLESHOOTING.md) and [release signing setup guide](docs/RELEASE_SIGNING.md).
 
 ## Contributors
 

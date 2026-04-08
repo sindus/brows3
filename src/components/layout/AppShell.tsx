@@ -93,15 +93,22 @@ export default function AppShell({ children }: AppShellProps) {
           profileApi.listProfiles(),
           profileApi.getActiveProfile()
         ]);
-        
-        if (loadedProfiles.length > 0) {
-          setProfiles(loadedProfiles);
-          if (activeProfile) {
-            setActiveProfileId(activeProfile.id);
-          } else if (loadedProfiles.length === 1) {
-             // Auto-select if only one profile exists
-             setActiveProfileId(loadedProfiles[0].id);
+
+        setProfiles(loadedProfiles);
+
+        if (activeProfile) {
+          setActiveProfileId(activeProfile.id);
+        } else if (loadedProfiles.length > 0) {
+          const fallbackProfile = loadedProfiles[0];
+          setActiveProfileId(fallbackProfile.id);
+
+          try {
+            await profileApi.setActiveProfile(fallbackProfile.id);
+          } catch (persistErr) {
+            console.warn('Failed to persist fallback active profile:', persistErr);
           }
+        } else {
+          setActiveProfileId(null);
         }
       } catch (err) {
         console.error("Failed to hydrate profiles on init", err);
