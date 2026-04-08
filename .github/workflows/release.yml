@@ -12,8 +12,56 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  prepare-release:
+    if: github.actor != 'github-actions[bot]'
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    outputs:
+      release_version: ${{ steps.release_meta.outputs.release_version }}
+      tag_name: ${{ steps.release_meta.outputs.tag_name }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: setup node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 20
+
+      - name: Compute release version
+        id: release_meta
+        shell: bash
+        run: |
+          BASE_VERSION=$(node -p 'const [major, minor] = require("./package.json").version.split("."); `${major}.${minor}`')
+          RELEASE_VERSION="${BASE_VERSION}.${GITHUB_RUN_NUMBER}"
+          TAG_NAME="app-v${RELEASE_VERSION}"
+          echo "release_version=$RELEASE_VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag_name=$TAG_NAME" >> "$GITHUB_OUTPUT"
+          echo "Using release version $RELEASE_VERSION"
+
+      - name: Create or update GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_VERSION: ${{ steps.release_meta.outputs.release_version }}
+          TAG_NAME: ${{ steps.release_meta.outputs.tag_name }}
+        run: |
+          NOTES_FILE=$(mktemp)
+          node .github/scripts/extract-release-notes.js > "$NOTES_FILE"
+
+          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
+            gh release edit "$TAG_NAME" \
+              --title "Brows3 v$RELEASE_VERSION" \
+              --notes-file "$NOTES_FILE"
+          else
+            gh release create "$TAG_NAME" \
+              --title "Brows3 v$RELEASE_VERSION" \
+              --notes-file "$NOTES_FILE"
+          fi
+
   publish-tauri:
     if: github.actor != 'github-actions[bot]'
+    needs: prepare-release
     permissions:
       contents: write
     strategy:
@@ -21,9 +69,9 @@ jobs:
       matrix:
         include:
           - platform: "macos-latest" # for Apple Silicon
-            args: "--target aarch64-apple-darwin --bundles app"
+            args: "--target aarch64-apple-darwin --bundles app,dmg"
           - platform: "macos-latest" # for Intel
-            args: "--target x86_64-apple-darwin --bundles app"
+            args: "--target x86_64-apple-darwin --bundles app,dmg"
           - platform: "ubuntu-22.04" # for Linux
             args: ""
           - platform: "windows-latest" # for Windows
@@ -66,8 +114,7 @@ jobs:
       - name: Compute release version
         shell: bash
         run: |
-          BASE_VERSION=$(node -p 'const [major, minor] = require("./package.json").version.split("."); `${major}.${minor}`')
-          RELEASE_VERSION="${BASE_VERSION}.${GITHUB_RUN_NUMBER}"
+          RELEASE_VERSION="${{ needs.prepare-release.outputs.release_version }}"
           echo "RELEASE_VERSION=$RELEASE_VERSION" >> $GITHUB_ENV
           echo "Using release version $RELEASE_VERSION"
 
@@ -153,22 +200,10 @@ jobs:
             echo "::warning::No macOS notarization credentials configured. Browser-downloaded builds may still trigger Gatekeeper warnings."
           fi
 
-      - name: Extract Release Notes
-        id: extract_notes
+      - name: Build desktop bundles
         shell: bash
         env:
-          RELEASE_VERSION: ${{ env.RELEASE_VERSION }}
-        run: |
-          {
-            echo "notes<<EOF"
-            node .github/scripts/extract-release-notes.js
-            echo "EOF"
-          } >> $GITHUB_OUTPUT
-
-      - uses: tauri-apps/tauri-action@v0
-        env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Tauri signing keys - REQUIRED for auto-updates to work
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           APPLE_CERTIFICATE: ${{ env.APPLE_CERTIFICATE }}
@@ -180,18 +215,37 @@ jobs:
           APPLE_API_KEY: ${{ env.APPLE_API_KEY }}
           APPLE_API_ISSUER: ${{ env.APPLE_API_ISSUER }}
           APPLE_API_KEY_PATH: ${{ env.APPLE_API_KEY_PATH }}
-        with:
-          includeUpdaterJson: true
-          tagName: app-v${{ env.RELEASE_VERSION }}
-          releaseName: "Brows3 v${{ env.RELEASE_VERSION }}"
-          releaseBody: ${{ steps.extract_notes.outputs.notes }}
-          releaseDraft: false
-          prerelease: false
-          args: ${{ matrix.args }}
+        run: |
+          pnpm tauri build ${{ matrix.args }}
+
+      - name: Upload release assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ needs.prepare-release.outputs.tag_name }}
+        run: |
+          mapfile -d '' FILES < <(find src-tauri/target -type f \( \
+            -name '*.msi' -o -name '*.msi.sig' -o -name '*.msi.zip' -o -name '*.msi.zip.sig' -o \
+            -name '*.exe' -o -name '*.exe.sig' -o -name '*.nsis.zip' -o -name '*.nsis.zip.sig' -o \
+            -name '*.AppImage' -o -name '*.AppImage.sig' -o \
+            -name '*.deb' -o -name '*.deb.sig' -o \
+            -name '*.dmg' -o -name '*.dmg.sig' -o \
+            -name '*.app.tar.gz' -o -name '*.app.tar.gz.sig' \
+          \) -print0)
+
+          if [ "${#FILES[@]}" -eq 0 ]; then
+            echo "::error::No release artifacts were generated."
+            exit 1
+          fi
+
+          printf 'Uploading %s\n' "${FILES[@]}"
+          gh release upload "$TAG_NAME" "${FILES[@]}" --clobber
 
   update-manifest:
     if: github.actor != 'github-actions[bot]'
-    needs: publish-tauri
+    needs:
+      - prepare-release
+      - publish-tauri
     permissions:
       contents: write
     runs-on: ubuntu-latest
@@ -208,8 +262,7 @@ jobs:
       - name: Compute release version
         shell: bash
         run: |
-          BASE_VERSION=$(node -p 'const [major, minor] = require("./package.json").version.split("."); `${major}.${minor}`')
-          RELEASE_VERSION="${BASE_VERSION}.${GITHUB_RUN_NUMBER}"
+          RELEASE_VERSION="${{ needs.prepare-release.outputs.release_version }}"
           echo "RELEASE_VERSION=$RELEASE_VERSION" >> $GITHUB_ENV
           echo "Using release version $RELEASE_VERSION"
 

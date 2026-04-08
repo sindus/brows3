@@ -19,6 +19,8 @@ Core updater signing:
 - `TAURI_SIGNING_PRIVATE_KEY`
 - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`
 
+The updater private key must match the public key committed in `src-tauri/tauri.conf.json` under `plugins.updater.pubkey`. If you generate a new private key and do not replace the public key in the repo, update installation will fail even though CI still builds artifacts.
+
 macOS code signing:
 
 - `APPLE_CERTIFICATE`
@@ -55,6 +57,36 @@ Set:
 - `APPLE_API_KEY`
 - `APPLE_API_ISSUER`
 - `APPLE_API_PRIVATE_KEY`
+
+## Where To Add The GitHub Keys
+
+In GitHub, open:
+
+1. Repository `Settings`
+2. `Secrets and variables`
+3. `Actions`
+4. `New repository secret`
+
+Add the Tauri updater secrets there. If you already added them previously, verify the secret names match exactly:
+
+- `TAURI_SIGNING_PRIVATE_KEY`
+- `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`
+
+If you rotated the updater key, also update `src-tauri/tauri.conf.json` with the matching new public key before shipping another release.
+
+## Generate Or Rotate The Tauri Updater Key
+
+Generate a minisign-compatible updater key pair:
+
+```bash
+pnpm dlx @tauri-apps/cli signer generate -w ~/.tauri/brows3.key
+```
+
+Then:
+
+1. copy the private key contents into the GitHub `TAURI_SIGNING_PRIVATE_KEY` secret
+2. copy the password into `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`
+3. copy the generated public key into `src-tauri/tauri.conf.json` at `plugins.updater.pubkey`
 
 ## Workflow Behavior
 

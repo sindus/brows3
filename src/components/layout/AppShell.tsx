@@ -6,7 +6,6 @@ import {
   Box,
   CssBaseline,
   Drawer,
-  IconButton,
   Toolbar,
   Typography,
   useMediaQuery,
@@ -15,9 +14,7 @@ import {
   CircularProgress,
 } from '@mui/material';
 import {
-  Menu as MenuIcon,
   Cloud as CloudIcon,
-  Settings as SettingsIcon,
 } from '@mui/icons-material';
 import { lightTheme, darkTheme } from '@/lib/theme';
 import { useAppStore } from '@/store/appStore';
@@ -43,13 +40,11 @@ interface AppShellProps {
 }
 
 export default function AppShell({ children }: AppShellProps) {
-  const { themeMode, sidebarOpen, setSidebarOpen, toggleSidebar } = useAppStore();
+  const { themeMode, sidebarOpen, setSidebarOpen } = useAppStore();
   const { profiles, setProfiles, setActiveProfileId } = useProfileStore();
   const maxConcurrentTransfers = useSettingsStore((state) => state.maxConcurrentTransfers);
   const [mounted, setMounted] = useState(false);
   const [profileDialogOpen, setProfileDialogOpen] = useState(false);
-  const [isUpdateavailable, setIsUpdateAvailable] = useState(false);
-  
   // Enable clipboard shortcuts globally
   useClipboardShortcuts();
   
@@ -161,11 +156,7 @@ export default function AppShell({ children }: AppShellProps) {
         const { check } = await import('@tauri-apps/plugin-updater');
         const update = await check();
         if (update?.available) {
-          setIsUpdateAvailable(true);
-          toast.info("Update Available", `Version ${update.version} is ready to install.`);
-           // If "dialog: true" is set in tauri.conf.json, this will show the built-in dialog
-           // and handle download, install, and relaunch automatically.
-          await update.downloadAndInstall();
+          toast.info("Update available", `Version ${update.version} is ready. Install it from Settings.`);
         }
       } catch (error) {
         // Silently fail - don't crash the app if update check fails
@@ -296,7 +287,7 @@ export default function AppShell({ children }: AppShellProps) {
                     Welcome to Brows3
                   </Typography>
                   <Typography variant="body1" color="text.secondary" sx={{ mb: 4, lineHeight: 1.6 }}>
-                    Your ultimate S3 browser. To get started, you'll need to connect an AWS account or S3-compatible storage.
+                    Your ultimate S3 browser. To get started, you&apos;ll need to connect an AWS account or S3-compatible storage.
                   </Typography>
                   <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
                     <Button 

@@ -144,6 +144,8 @@ Brows3 is available for all major desktop platforms. Download the latest version
 | **Windows** | `.msi`, `.exe` |
 | **Linux** | `.deb`, `.AppImage` |
 
+Windows releases are configured to bundle the WebView2 runtime with the installer so fresh machines do not depend on a separate runtime download during installation.
+
 ### Manual Build
 
 If you prefer building from source, follow the instructions for your platform:
@@ -234,6 +236,14 @@ sudo xattr -rd com.apple.quarantine /Applications/Brows3.app
 ```
 
 Releases can now use Apple signing/notarization credentials when configured in CI; unsigned community builds may still need the quarantine-removal step above. For more details, see our [macOS Troubleshooting Guide](docs/MACOS_TROUBLESHOOTING.md) and [release signing setup guide](docs/RELEASE_SIGNING.md).
+
+## Release Keys
+
+For auto-updates to install correctly, the GitHub Actions secrets must include `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, and the matching public key must be present in `src-tauri/tauri.conf.json`. The exact GitHub path is:
+
+`Repository Settings -> Secrets and variables -> Actions`
+
+If you already added the secrets for Tauri, double-check that the secret names are exact and that the committed updater `pubkey` still matches the private key currently stored in GitHub.
 
 ## Contributors
 
