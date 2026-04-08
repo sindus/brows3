@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { TransferJob } from '@/lib/tauri';
+import { transferApi } from '@/lib/tauri';
 
 interface TransferState {
   jobs: TransferJob[];
@@ -22,7 +23,7 @@ interface TransferState {
   clearCompleted: () => Promise<void>;
 }
 
-import { transferApi } from '@/lib/tauri';
+let latestRefreshRequestId = 0;
 
 export const useTransferStore = create<TransferState>((set, get) => ({
   jobs: [],
@@ -117,8 +118,12 @@ export const useTransferStore = create<TransferState>((set, get) => ({
   showPanel: () => set({ isPanelHidden: false, isPanelOpen: true }),
   
   refreshJobs: async () => {
+    const requestId = ++latestRefreshRequestId;
     try {
       const jobs = await transferApi.listTransfers();
+      if (requestId !== latestRefreshRequestId) {
+        return;
+      }
       set({ 
         jobs,
         jobsMap: new Map(jobs.map(j => [j.id, j]))
