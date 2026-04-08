@@ -1,0 +1,72 @@
+name: Bug report
+description: Report a bug in Brows3, the S3 browser / S3 desktop client.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug in Brows3.
+
+        Please include enough detail to reproduce the issue in this Amazon S3 browser, S3 explorer, or S3-compatible storage client workflow.
+  - type: input
+    id: version
+    attributes:
+      label: Brows3 version
+      placeholder: e.g. 0.2.32
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - macOS
+        - Windows
+        - Linux
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: provider
+    attributes:
+      label: Storage provider
+      options:
+        - AWS S3
+        - MinIO
+        - Cloudflare R2
+        - Wasabi
+        - DigitalOcean Spaces
+        - Other S3-compatible storage
+    validations:
+      required: true
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      placeholder: Describe the bug clearly.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open Brows3
+        2. Connect to...
+        3. Open bucket...
+        4. Observe...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs, screenshots, or error messages
+      description: Paste any useful logs or screenshots.

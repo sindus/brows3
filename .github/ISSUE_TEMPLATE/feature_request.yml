@@ -1,0 +1,40 @@
+name: Feature request
+description: Suggest an improvement for Brows3, the S3 browser / S3 explorer.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting an improvement.
+
+        Good feature requests usually explain the workflow, the current limitation, and why the feature matters for S3 browsing, object storage management, or S3-compatible storage support.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: dropdown
+    id: provider
+    attributes:
+      label: Relevant provider
+      options:
+        - AWS S3
+        - MinIO
+        - Cloudflare R2
+        - Wasabi
+        - DigitalOcean Spaces
+        - All providers
+        - Other

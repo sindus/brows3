@@ -90,6 +90,20 @@ Brows3 is relevant if you are searching for:
 - DigitalOcean Spaces client
 - object storage explorer
 
+## Alternatives And Comparisons
+
+People often discover Brows3 while searching for:
+
+- Cyberduck alternative for S3
+- S3 Browser alternative
+- open source S3 client
+- fast S3 desktop client
+- GUI client for Amazon S3
+- MinIO desktop client
+- R2 browser
+
+Brows3 is focused on fast bucket navigation, deep search, and large-list performance rather than generic cloud-storage support across many unrelated providers.
+
 ## Installation
 
 Brows3 is available for all major desktop platforms. Download the latest version from the [Releases](https://github.com/rgcsekaraa/brows3/releases) page.
