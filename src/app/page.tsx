@@ -46,7 +46,7 @@ function HomeContent() {
   const router = useRouter();
   const { activeProfileId, profiles } = useProfileStore();
   const { recentPaths, addPath } = useHistoryStore();
-  const { addTab } = useAppStore();
+  const { addTab, activeTabId, updateTab } = useAppStore();
   
   // Use query parameter to toggle view instead of local state
   const searchParams = useSearchParams();
@@ -72,7 +72,13 @@ function HomeContent() {
   }, [buckets, deferredSearchQuery]);
 
   const handleFetchBuckets = () => {
-    router.push('/?view=discovery');
+    const path = '/?view=discovery';
+    if (activeTabId && activeTabId !== 'home') {
+      updateTab(activeTabId, { title: 'Buckets', path, icon: 'cloud' });
+    } else {
+      addTab({ title: 'Buckets', path, icon: 'cloud' });
+    }
+    router.push(path);
   };
 
   const validateAndParsePath = (path: string): { bucket: string; prefix: string; hasTrailingSlash: boolean } | null => {
@@ -98,8 +104,6 @@ function HomeContent() {
   const handleNavigate = (path: string) => {
     // 1. Prevent double navigation in the same frame
     if (isNavigating.current) return;
-    isNavigating.current = true;
-    setTimeout(() => { isNavigating.current = false; }, 500);
 
     const trimmedPath = path.trim();
     if (!trimmedPath) {
@@ -114,6 +118,8 @@ function HomeContent() {
     }
     
     const { bucket, prefix, hasTrailingSlash } = parsed;
+    isNavigating.current = true;
+    setTimeout(() => { isNavigating.current = false; }, 500);
     
     const activeProfile = profiles.find(p => p.id === activeProfileId);
     // Priority: 1. Discovered region from store, 2. Profile default
@@ -236,7 +242,11 @@ function HomeContent() {
             <TableRow
               key={bucket.name}
               hover
-              onClick={() => router.push(`/bucket?name=${bucket.name}&region=${bucket.region}`)}
+              onClick={() => {
+                const path = `/bucket?name=${bucket.name}&region=${bucket.region}`;
+                addTab({ title: bucket.name, path, icon: 'bucket' });
+                router.push(path);
+              }}
               sx={{ 
                 cursor: 'pointer',
                 '&:last-child td, &:last-child th': { border: 0 },
