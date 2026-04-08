@@ -18,7 +18,7 @@ import { copyToClipboard, objectApi } from '@/lib/tauri';
 import Editor, { OnMount } from '@monaco-editor/react';
 import { toast } from '@/store/toastStore';
 import { BaseDialog } from '../common/BaseDialog';
-import { getEditorLanguage, getObjectKind, getObjectName } from '@/lib/objectCapabilities';
+import { getEditorLanguage, getObjectExtension, getObjectKind, getObjectName } from '@/lib/objectCapabilities';
 
 interface ObjectPreviewDialogProps {
   open: boolean;
@@ -60,6 +60,7 @@ export default function ObjectPreviewDialog({
   const pdfLoadingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const filename = getObjectName(objectKey);
+  const ext = getObjectExtension(filename);
   const objectKind = getObjectKind(filename, contentType);
   const isImageFile = objectKind === 'image';
   const isVideoFile = objectKind === 'video';

@@ -228,6 +228,10 @@ export const objectApi = {
     await invoke<void>('put_object_content', { bucketName, bucketRegion, key, content });
     invalidateCache();
   },
+
+  async getObjectMetadata(bucketName: string, bucketRegion: string | undefined, key: string): Promise<ObjectMetadata> {
+    return invoke<ObjectMetadata>('get_object_metadata', { bucketName, bucketRegion, key });
+  },
 };
 
 export const operationsApi = {
