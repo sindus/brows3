@@ -45,10 +45,21 @@ const invoke = async <T>(cmd: string, args?: any): Promise<T> => {
   }
 };
 
-// Cache invalidation helper - will be imported in hook, defined here for API layer
-let cacheInvalidator: (() => void) | null = null;
-export const setCacheInvalidator = (fn: () => void) => { cacheInvalidator = fn; };
-const invalidateCache = () => { if (cacheInvalidator) cacheInvalidator(); };
+// Cache invalidation helper - hooks can subscribe to write-driven invalidation
+const cacheInvalidators = new Set<() => void>();
+
+export const subscribeCacheInvalidation = (fn: () => void) => {
+  cacheInvalidators.add(fn);
+  return () => {
+    cacheInvalidators.delete(fn);
+  };
+};
+
+export const invalidateCache = () => {
+  for (const fn of cacheInvalidators) {
+    fn();
+  }
+};
 
 export const copyToClipboard = async (text: string): Promise<void> => {
   if (isTauri()) {

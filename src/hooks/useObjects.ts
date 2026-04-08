@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { ListObjectsResult, objectApi } from '@/lib/tauri';
+import { ListObjectsResult, objectApi, subscribeCacheInvalidation } from '@/lib/tauri';
 import { useProfileStore } from '@/store/profileStore';
 import { useAppStore } from '@/store/appStore';
 import { useSettingsStore } from '@/store/settingsStore';
@@ -125,6 +125,16 @@ export function useObjects(bucketName: string, bucketRegion?: string, prefix = '
       }
     };
   }, [bucketName, prefix, activeProfileId, fetchItems]);
+
+  useEffect(() => {
+    return subscribeCacheInvalidation(() => {
+      loadedViewKeyRef.current = '';
+      lastDataKeyRef.current = '';
+      setData(null);
+      setContinuationToken(null);
+      setHasMore(false);
+    });
+  }, []);
 
   // Track last fetch time
   const lastFetchTime = useRef<number>(0);

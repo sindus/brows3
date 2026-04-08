@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { BucketWithRegion, bucketApi, isTauri, setCacheInvalidator } from '@/lib/tauri';
+import { BucketWithRegion, bucketApi, subscribeCacheInvalidation } from '@/lib/tauri';
 import { useProfileStore } from '@/store/profileStore';
 import { useSettingsStore } from '@/store/settingsStore';
 
@@ -50,7 +50,7 @@ export function useBuckets(options: { enabled?: boolean } = { enabled: true }): 
 
   // Connect the cache invalidator so write operations trigger a refresh
   useEffect(() => {
-    setCacheInvalidator(() => {
+    return subscribeCacheInvalidation(() => {
       invalidateBucketCache();
       setCacheTimestamp(null); // Reset UI cache state
     });

@@ -37,10 +37,11 @@ import { useAppStore } from '@/store/appStore';
 import { useMonitorStore } from '@/store/monitorStore';
 import { invalidateBucketCache } from '@/hooks/useBuckets';
 import { toast } from '@/store/toastStore';
+import { invalidateCache, isTauri } from '@/lib/tauri';
 
 export default function SettingsPage() {
   // Theme is controlled by appStore (used by the actual app)
-  const { themeMode, setThemeMode } = useAppStore();
+  const { themeMode, setThemeMode, clearDiscoveredRegions } = useAppStore();
   // Other settings from settingsStore
   const { 
     defaultRegion, setDefaultRegion, 
@@ -51,8 +52,15 @@ export default function SettingsPage() {
   const [version, setVersion] = useState<string>('...');
   const [appDataDir, setAppDataDir] = useState<string>('Loading...');
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
+  const [pendingTransferConcurrency, setPendingTransferConcurrency] = useState(maxConcurrentTransfers);
   
   useEffect(() => {
+    if (!isTauri()) {
+      setVersion('Web');
+      setAppDataDir('Desktop app only');
+      return;
+    }
+
     // Get app version
     import('@tauri-apps/api/app').then(({ getVersion }) => {
       getVersion().then(setVersion).catch(() => setVersion('Unknown'));
@@ -64,12 +72,23 @@ export default function SettingsPage() {
     });
   }, []);
 
+  useEffect(() => {
+    setPendingTransferConcurrency(maxConcurrentTransfers);
+  }, [maxConcurrentTransfers]);
+
   const handleClearCache = () => {
     invalidateBucketCache();
-    toast.success('Cache cleared', 'Bucket cache has been cleared. Refresh to reload data.');
+    clearDiscoveredRegions();
+    invalidateCache();
+    toast.success('Caches cleared', 'Bucket lists, discovered regions, and object views were reset.');
   };
 
   const handleCheckUpdate = async () => {
+    if (!isTauri()) {
+      toast.info('Desktop only', 'Update checks are only available in the desktop app.');
+      return;
+    }
+
     setIsCheckingUpdate(true);
     try {
       const { check } = await import('@tauri-apps/plugin-updater');
@@ -156,16 +175,24 @@ export default function SettingsPage() {
           <ListItem divider>
             <ListItemText 
               primary="Max Concurrent Transfers" 
-              secondary={`Allow up to ${maxConcurrentTransfers} simultaneous uploads/downloads`} 
+              secondary={`Allow up to ${pendingTransferConcurrency} simultaneous uploads/downloads`} 
             />
             <Box sx={{ width: 200, mr: 2 }}>
                <Slider
-                 value={maxConcurrentTransfers}
+                 value={pendingTransferConcurrency}
                  min={1}
                  max={20}
                  step={1}
                  valueLabelDisplay="auto"
-                 onChange={(_, val) => setMaxConcurrentTransfers(val as number)}
+                 onChange={(_, val) => setPendingTransferConcurrency(val as number)}
+                 onChangeCommitted={(_, val) => {
+                   const nextValue = val as number;
+                   setPendingTransferConcurrency(nextValue);
+                   if (nextValue !== maxConcurrentTransfers) {
+                     setMaxConcurrentTransfers(nextValue);
+                     toast.success('Transfer concurrency updated', `Set to ${nextValue}`);
+                   }
+                 }}
                />
             </Box>
           </ListItem>
@@ -210,8 +237,8 @@ export default function SettingsPage() {
           <Divider />
           <ListItem>
             <ListItemText 
-              primary="Bucket Cache" 
-              secondary="Clear cached bucket listings to force a fresh fetch from S3" 
+              primary="Cached Bucket and Object Data" 
+              secondary="Clear cached bucket lists, discovered regions, and open object views to force fresh fetches from S3" 
             />
             <ListItemSecondaryAction>
               <Button 
@@ -327,4 +354,3 @@ function SystemMonitor() {
     </Paper>
   );
 }
-

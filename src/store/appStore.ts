@@ -30,6 +30,7 @@ interface AppState {
   setSidebarOpen: (open: boolean) => void;
   setSidebarWidth: (width: number) => void;
   setDiscoveredRegion: (bucket: string, region: string) => void;
+  clearDiscoveredRegions: () => void;
   
   // Tab Actions
   addTab: (tab: Omit<Tab, 'id'>) => void;
@@ -64,6 +65,8 @@ export const useAppStore = create<AppState>()(
       setDiscoveredRegion: (bucket, region) => set((state) => ({
         discoveredRegions: { ...state.discoveredRegions, [bucket]: region }
       })),
+
+      clearDiscoveredRegions: () => set({ discoveredRegions: {} }),
       
       addTab: (tab) => set((state) => {
         // Check if a tab with the same path already exists (deduplicate)

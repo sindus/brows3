@@ -45,6 +45,7 @@ import { useClipboardStore } from '@/store/clipboardStore';
 import { toast } from '@/store/toastStore';
 import { useRouter } from 'next/navigation';
 import { BaseDialog } from '../common/BaseDialog';
+import { invalidateBucketCache } from '@/hooks/useBuckets';
 
 const AWS_REGIONS = [
   'us-east-1', 'us-east-2', 'us-west-1', 'us-west-2',
@@ -66,7 +67,7 @@ interface ProfileDialogProps {
 export default function ProfileDialog({ open, onClose, editProfile }: ProfileDialogProps) {
   const router = useRouter();
   const theme = useTheme();
-  const { profiles, addProfile, updateProfile, removeProfile, setActiveProfileId } = useProfileStore();
+  const { profiles, addProfile, updateProfile, setActiveProfileId } = useProfileStore();
   const { resetApp } = useAppStore();
   const { clearHistory } = useHistoryStore();
   const { clear: clearClipboard } = useClipboardStore();
@@ -290,9 +291,17 @@ export default function ProfileDialog({ open, onClose, editProfile }: ProfileDia
     
     try {
       await profileApi.deleteProfile(profileID);
-      removeProfile(profileID);
+      const [loadedProfiles, activeProfile] = await Promise.all([
+        profileApi.listProfiles(),
+        profileApi.getActiveProfile(),
+      ]);
+      useProfileStore.setState({
+        profiles: loadedProfiles,
+        activeProfileId: activeProfile?.id || null,
+      });
       
       resetApp();
+      invalidateBucketCache();
       clearHistory();
       clearClipboard();
       
