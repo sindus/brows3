@@ -63,6 +63,17 @@ jobs:
       - name: install frontend dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Compute release version
+        shell: bash
+        run: |
+          BASE_VERSION=$(node -p 'const [major, minor] = require("./package.json").version.split("."); `${major}.${minor}`')
+          RELEASE_VERSION="${BASE_VERSION}.${GITHUB_RUN_NUMBER}"
+          echo "RELEASE_VERSION=$RELEASE_VERSION" >> $GITHUB_ENV
+          echo "Using release version $RELEASE_VERSION"
+
+      - name: Sync release versions
+        run: node scripts/sync-release-version.js "$RELEASE_VERSION"
+
       - name: Prepare App Store Connect API key (macOS only)
         if: matrix.platform == 'macos-latest'
         shell: bash
@@ -118,11 +129,10 @@ jobs:
         shell: bash
         run: |
           if [ -z "${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}" ]; then
-            echo "::warning::TAURI_SIGNING_PRIVATE_KEY is not set! Auto-updates will NOT work without signed builds."
-            echo "SIGNING_AVAILABLE=false" >> $GITHUB_ENV
+            echo "::error::TAURI_SIGNING_PRIVATE_KEY is required for signed desktop updates."
+            exit 1
           else
             echo "✅ TAURI_SIGNING_PRIVATE_KEY is configured"
-            echo "SIGNING_AVAILABLE=true" >> $GITHUB_ENV
           fi
 
       - name: Verify macOS signing configuration
@@ -146,6 +156,8 @@ jobs:
       - name: Extract Release Notes
         id: extract_notes
         shell: bash
+        env:
+          RELEASE_VERSION: ${{ env.RELEASE_VERSION }}
         run: |
           {
             echo "notes<<EOF"
@@ -170,8 +182,8 @@ jobs:
           APPLE_API_KEY_PATH: ${{ env.APPLE_API_KEY_PATH }}
         with:
           includeUpdaterJson: true
-          tagName: app-v__VERSION__
-          releaseName: "Brows3 v__VERSION__"
+          tagName: app-v${{ env.RELEASE_VERSION }}
+          releaseName: "Brows3 v${{ env.RELEASE_VERSION }}"
           releaseBody: ${{ steps.extract_notes.outputs.notes }}
           releaseDraft: false
           prerelease: false
@@ -193,11 +205,19 @@ jobs:
         with:
           node-version: 20
 
+      - name: Compute release version
+        shell: bash
+        run: |
+          BASE_VERSION=$(node -p 'const [major, minor] = require("./package.json").version.split("."); `${major}.${minor}`')
+          RELEASE_VERSION="${BASE_VERSION}.${GITHUB_RUN_NUMBER}"
+          echo "RELEASE_VERSION=$RELEASE_VERSION" >> $GITHUB_ENV
+          echo "Using release version $RELEASE_VERSION"
+
       - name: Update manifest
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          VERSION=$(node -p "require('./package.json').version")
+          VERSION="$RELEASE_VERSION"
           TAG="app-v$VERSION"
           
           echo "Updating manifest for version $VERSION ($TAG)"

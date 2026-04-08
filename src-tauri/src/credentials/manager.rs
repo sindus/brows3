@@ -98,10 +98,12 @@ impl ProfileManager {
             ProfilesData::default()
         };
         
+        let keychain = super::KeychainStorage::new("brows3", &config_dir);
+
         Ok(Self {
             config_dir,
             data,
-            keychain: super::KeychainStorage::new("brows3"),
+            keychain,
         })
     }
 
