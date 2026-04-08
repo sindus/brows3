@@ -17,7 +17,24 @@ interface UseBucketsResult {
 
 // Cache bucket list per profile in memory for instant loading
 const bucketCache = new Map<string, { data: BucketWithRegion[]; timestamp: number }>();
+const bucketFetchPromises = new Map<string, Promise<BucketWithRegion[]>>();
 const CACHE_TTL = 30 * 60 * 1000; // 30 minutes - buckets rarely change
+
+function fetchBucketsForProfile(profileId: string): Promise<BucketWithRegion[]> {
+  const inflight = bucketFetchPromises.get(profileId);
+  if (inflight) {
+    return inflight;
+  }
+
+  const request = bucketApi.listBucketsWithRegions().finally(() => {
+    if (bucketFetchPromises.get(profileId) === request) {
+      bucketFetchPromises.delete(profileId);
+    }
+  });
+
+  bucketFetchPromises.set(profileId, request);
+  return request;
+}
 
 // Export for footer to access
 export function getBucketCacheInfo(profileId: string | null): { timestamp: number | null; isCached: boolean } {
@@ -84,7 +101,7 @@ export function useBuckets(options: { enabled?: boolean } = { enabled: true }): 
     setError(null);
 
     try {
-      const data = await bucketApi.listBucketsWithRegions();
+      const data = await fetchBucketsForProfile(profileId);
       
       if (mountedRef.current && requestId === requestIdRef.current && useProfileStore.getState().activeProfileId === profileId) {
         const now = Date.now();

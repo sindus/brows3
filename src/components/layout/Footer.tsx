@@ -32,7 +32,7 @@ export default function Footer() {
   const { profiles, activeProfileId } = useProfileStore();
   const { jobs } = useTransferStore();
   const { discoveredRegions } = useAppStore();
-  const { buckets, isCached, cacheAge, isLoading } = useBuckets();
+  const { buckets, isCached, cacheAge, isLoading } = useBuckets({ enabled: !!activeProfileId });
   const searchParams = useSearchParams();
   const [appVersion, setAppVersion] = useState('');
   
