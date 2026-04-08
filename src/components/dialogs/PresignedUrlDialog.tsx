@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Button,
   TextField,
@@ -59,6 +59,8 @@ export default function PresignedUrlDialog({
   const [generatedUrl, setGeneratedUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const generateRequestIdRef = useRef(0);
+  const copiedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Calculate actual expiry time in seconds
   const getExpirySeconds = (): number => {
@@ -85,6 +87,7 @@ export default function PresignedUrlDialog({
   // Reset state when dialog opens
   useEffect(() => {
     if (open) {
+      generateRequestIdRef.current += 1;
       setSelectedExpiry(3600);
       setCustomExpiry('');
       setCustomUnit('hours');
@@ -93,6 +96,14 @@ export default function PresignedUrlDialog({
       setCopied(false);
       setIsGenerating(false);
     }
+
+    return () => {
+      generateRequestIdRef.current += 1;
+      if (copiedTimeoutRef.current) {
+        clearTimeout(copiedTimeoutRef.current);
+        copiedTimeoutRef.current = null;
+      }
+    };
   }, [open]);
 
   const handleGenerate = async () => {
@@ -112,15 +123,22 @@ export default function PresignedUrlDialog({
     setIsGenerating(true);
     setError(null);
     setGeneratedUrl(null);
+    const requestId = ++generateRequestIdRef.current;
 
     try {
       const url = await objectApi.getPresignedUrl(bucketName, bucketRegion, objectKey, expirySeconds);
-      setGeneratedUrl(url);
+      if (requestId === generateRequestIdRef.current) {
+        setGeneratedUrl(url);
+      }
     } catch (err: any) {
-      const errMsg = err?.message || String(err);
-      setError(`Failed to generate URL: ${errMsg}`);
+      if (requestId === generateRequestIdRef.current) {
+        const errMsg = err?.message || String(err);
+        setError(`Failed to generate URL: ${errMsg}`);
+      }
     } finally {
-      setIsGenerating(false);
+      if (requestId === generateRequestIdRef.current) {
+        setIsGenerating(false);
+      }
     }
   };
 
@@ -129,7 +147,13 @@ export default function PresignedUrlDialog({
     try {
       await copyToClipboard(generatedUrl);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      if (copiedTimeoutRef.current) {
+        clearTimeout(copiedTimeoutRef.current);
+      }
+      copiedTimeoutRef.current = setTimeout(() => {
+        setCopied(false);
+        copiedTimeoutRef.current = null;
+      }, 2000);
     } catch {
       setError('Failed to copy to clipboard');
     }

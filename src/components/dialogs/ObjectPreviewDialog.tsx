@@ -128,6 +128,8 @@ export default function ObjectPreviewDialog({
   const initialVersionIdRef = useRef<number>(0);
   const [currentVersionId, setCurrentVersionId] = useState<number>(0);
   const loadRequestIdRef = useRef(0);
+  const loadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pdfLoadingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const filename = objectKey.split('/').pop() || objectKey;
   const ext = getExtension(filename);
@@ -158,6 +160,14 @@ export default function ObjectPreviewDialog({
       // Reset version tracking for fresh content
       initialVersionIdRef.current = 0;
       setCurrentVersionId(0);
+      if (loadTimeoutRef.current) {
+        clearTimeout(loadTimeoutRef.current);
+        loadTimeoutRef.current = null;
+      }
+      if (pdfLoadingTimeoutRef.current) {
+        clearTimeout(pdfLoadingTimeoutRef.current);
+        pdfLoadingTimeoutRef.current = null;
+      }
 
       // 2MB Limit check for text files
       const MAX_PREVIEW_SIZE = 2 * 1024 * 1024; // 2MB
@@ -168,7 +178,7 @@ export default function ObjectPreviewDialog({
       }
 
       // Safety timeout to prevent infinite spinner
-      const timeoutId = setTimeout(() => {
+      loadTimeoutRef.current = setTimeout(() => {
         if (!cancelled && requestId === loadRequestIdRef.current) {
           console.error("Content loading timed out");
           setIsLoading(false);
@@ -182,7 +192,11 @@ export default function ObjectPreviewDialog({
           if (isImageFile) setIsImageRendering(true);
           if (isPdfFile) {
              setIsPdfLoading(true);
-             setTimeout(() => setIsPdfLoading(false), 5000); 
+             pdfLoadingTimeoutRef.current = setTimeout(() => {
+               if (!cancelled && requestId === loadRequestIdRef.current) {
+                 setIsPdfLoading(false);
+               }
+             }, 5000);
           }
           const url = await objectApi.getPresignedUrl(bucketName, bucketRegion, objectKey, 3600);
           if (!cancelled && requestId === loadRequestIdRef.current) {
@@ -204,7 +218,10 @@ export default function ObjectPreviewDialog({
           setError(err instanceof Error ? err.message : 'Failed to load content');
         }
       } finally {
-        clearTimeout(timeoutId);
+        if (loadTimeoutRef.current) {
+          clearTimeout(loadTimeoutRef.current);
+          loadTimeoutRef.current = null;
+        }
         if (!cancelled && requestId === loadRequestIdRef.current) {
           setIsLoading(false);
         }
@@ -215,6 +232,15 @@ export default function ObjectPreviewDialog({
 
     return () => {
       cancelled = true;
+      loadRequestIdRef.current += 1;
+      if (loadTimeoutRef.current) {
+        clearTimeout(loadTimeoutRef.current);
+        loadTimeoutRef.current = null;
+      }
+      if (pdfLoadingTimeoutRef.current) {
+        clearTimeout(pdfLoadingTimeoutRef.current);
+        pdfLoadingTimeoutRef.current = null;
+      }
     };
   }, [open, objectKey, bucketName, bucketRegion, isImageFile, isVideoFile, isPdfFile, isText, objectSize]);
 
@@ -265,6 +291,15 @@ export default function ObjectPreviewDialog({
   };
 
   const handleClose = () => {
+    loadRequestIdRef.current += 1;
+    if (loadTimeoutRef.current) {
+      clearTimeout(loadTimeoutRef.current);
+      loadTimeoutRef.current = null;
+    }
+    if (pdfLoadingTimeoutRef.current) {
+      clearTimeout(pdfLoadingTimeoutRef.current);
+      pdfLoadingTimeoutRef.current = null;
+    }
     setIsEditing(false);
     onClose();
   };
