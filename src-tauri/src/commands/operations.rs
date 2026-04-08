@@ -564,15 +564,14 @@ pub async fn move_object(
                 let relative_path = key.strip_prefix(&source_key).unwrap_or(key);
                 let new_key = format!("{}{}", destination_key, relative_path);
 
-                copy_object(
-                    source_bucket.clone(),
-                    source_region_resolved.clone(),
-                    key.clone(),
-                    destination_bucket.clone(),
+                copy_single_object(
+                    &source_bucket,
+                    key,
+                    &destination_bucket,
                     destination_region.clone(),
-                    new_key,
-                    profile_state.clone(),
-                    s3_state.clone()
+                    &new_key,
+                    &active_profile,
+                    &s3_state,
                 ).await?;
             }
         }
