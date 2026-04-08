@@ -700,7 +700,7 @@ function BucketContent() {
     setIsDeleting(true);
     try {
         // Collect all keys to delete - for folders, we need to list ALL objects recursively
-        const keysToDelete: string[] = [];
+        const keysToDelete = new Set<string>();
         
         for (const key of selectedKeys) {
           if (key.endsWith('/')) {
@@ -713,32 +713,33 @@ function BucketContent() {
                 const result = await objectApi.listObjects(bucketName, bucketRegion, key, '', continuationToken, true);
                 // Add all objects under this prefix (since delimiter is empty, no common_prefixes will be returned)
                 for (const obj of result.objects) {
-                  keysToDelete.push(obj.key);
+                  keysToDelete.add(obj.key);
                 }
                 continuationToken = result.next_continuation_token || undefined;
               } while (continuationToken);
               // Also delete the folder marker itself
-              keysToDelete.push(key);
+              keysToDelete.add(key);
             } catch (listErr) {
               console.error(`Failed to list folder contents: ${key}`, listErr);
               // Still try to delete the folder marker
-              keysToDelete.push(key);
+              keysToDelete.add(key);
             }
           } else {
             // It's a file - just add it
-            keysToDelete.push(key);
+            keysToDelete.add(key);
           }
         }
         
-        if (keysToDelete.length === 0) {
+        if (keysToDelete.size === 0) {
           displaySuccess('No items to delete');
           setDeleteConfirmOpen(false);
           return;
         }
         
         // Delete all collected keys
-        await operationsApi.deleteObjects(bucketName, bucketRegion, keysToDelete);
-        displaySuccess(`Successfully deleted ${keysToDelete.length} items`);
+        const keysToDeleteList = Array.from(keysToDelete);
+        await operationsApi.deleteObjects(bucketName, bucketRegion, keysToDeleteList);
+        displaySuccess(`Successfully deleted ${keysToDeleteList.length} items`);
         setSelectedKeys(new Set());
         refresh();
         setDeleteConfirmOpen(false);
@@ -853,14 +854,22 @@ function BucketContent() {
     if (!bucketName || !renameTarget || !renameValue.trim()) return;
     try {
        const oldKey = renameTarget.key;
+       const trimmedName = renameValue.trim();
        const normalizedOldKey = renameTarget.isFolder && oldKey.endsWith('/')
          ? oldKey.slice(0, -1)
          : oldKey;
        const parentPrefix = normalizedOldKey.includes('/')
          ? normalizedOldKey.slice(0, normalizedOldKey.lastIndexOf('/') + 1)
          : '';
+       const currentName = normalizedOldKey.split('/').pop() || normalizedOldKey;
 
-       let newKey = `${parentPrefix}${renameValue.trim()}`;
+       if (trimmedName === currentName) {
+         setRenameOpen(false);
+         setRenameTarget(null);
+         return;
+       }
+
+       let newKey = `${parentPrefix}${trimmedName}`;
        if (renameTarget.isFolder && !newKey.endsWith('/')) newKey += '/';
        
        await operationsApi.moveObject(bucketName, bucketRegion, oldKey, bucketName, bucketRegion, newKey);
