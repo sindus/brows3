@@ -28,15 +28,17 @@ import { useProfileStore } from '@/store/profileStore';
 export default function RecentPage() {
   const router = useRouter();
   const { recentItems, clearRecent } = useHistoryStore();
-  const { addTab } = useAppStore();
-  const activeProfileId = useProfileStore((state) => state.activeProfileId);
+  const { addTab, discoveredRegions } = useAppStore();
+  const { activeProfileId, profiles } = useProfileStore();
+  const activeProfile = profiles.find((profile) => profile.id === activeProfileId);
 
   const visibleRecentItems = recentItems.filter((item) => item.profileId === activeProfileId);
 
   const buildBucketPath = (item: RecentItem, prefix?: string) => {
     const params = new URLSearchParams();
     params.set('name', item.bucket);
-    if (item.region) params.set('region', item.region);
+    const region = item.region || discoveredRegions[item.bucket] || activeProfile?.region;
+    if (region) params.set('region', region);
     if (prefix) params.set('prefix', prefix);
     return `/bucket?${params.toString()}`;
   };
