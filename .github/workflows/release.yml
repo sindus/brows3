@@ -242,14 +242,23 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG_NAME: ${{ needs.prepare-release.outputs.tag_name }}
         run: |
-          mapfile -d '' FILES < <(find src-tauri/target -type f \( \
-            -name '*.msi' -o -name '*.msi.sig' -o -name '*.msi.zip' -o -name '*.msi.zip.sig' -o \
-            -name '*.exe' -o -name '*.exe.sig' -o -name '*.nsis.zip' -o -name '*.nsis.zip.sig' -o \
-            -name '*.AppImage' -o -name '*.AppImage.sig' -o \
-            -name '*.deb' -o -name '*.deb.sig' -o \
-            -name '*.dmg' -o -name '*.dmg.sig' -o \
-            -name '*.app.tar.gz' -o -name '*.app.tar.gz.sig' \
-          \) -print0)
+          mapfile -d '' FILES < <(find src-tauri/target -type f \
+            \( \
+              -path '*/bundle/msi/*' -o \
+              -path '*/bundle/nsis/*' -o \
+              -path '*/bundle/appimage/*' -o \
+              -path '*/bundle/deb/*' -o \
+              -path '*/bundle/dmg/*' -o \
+              -path '*/bundle/macos/*' \
+            \) \
+            \( \
+              -name '*.msi' -o -name '*.msi.sig' -o -name '*.msi.zip' -o -name '*.msi.zip.sig' -o \
+              -name '*-setup.exe' -o -name '*-setup.exe.sig' -o -name '*.nsis.zip' -o -name '*.nsis.zip.sig' -o \
+              -name '*.AppImage' -o -name '*.AppImage.sig' -o \
+              -name '*.deb' -o -name '*.deb.sig' -o \
+              -name '*.dmg' -o -name '*.dmg.sig' -o \
+              -name '*.app.tar.gz' -o -name '*.app.tar.gz.sig' \
+            \) -print0)
 
           if [ "${#FILES[@]}" -eq 0 ]; then
             echo "::error::No release artifacts were generated."
