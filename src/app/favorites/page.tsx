@@ -79,7 +79,7 @@ export default function FavoritesPage() {
             color="error" 
             size="small"
             startIcon={<DeleteIcon />}
-            onClick={clearFavorites}
+            onClick={() => clearFavorites(activeProfileId || undefined)}
           >
             Clear All
           </Button>

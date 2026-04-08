@@ -15,34 +15,47 @@ export interface RecentItem {
 
 export type FavoriteItem = RecentItem;
 
+export interface RecentPathEntry {
+  path: string;
+  profileId?: string;
+}
+
 interface HistoryState {
-  recentPaths: string[]; // For TopBar autocomplete
+  recentPaths: string[]; // Legacy field kept for persisted state compatibility
+  recentPathEntries: RecentPathEntry[];
   recentItems: RecentItem[]; // For inner navigation history
   
-  addPath: (path: string) => void;
+  addPath: (path: string, profileId?: string) => void;
   addRecent: (item: RecentItem) => void; // New method for bucket/page.tsx
-  clearRecent: () => void;
-  clearHistory: () => void;
+  clearRecent: (profileId?: string) => void;
+  clearHistory: (profileId?: string) => void;
   
   // Stubs for Favorites (used in page.tsx too)
   favorites: RecentItem[];
   addFavorite: (item: RecentItem) => void;
   removeFavorite: (key: string, bucket?: string, profileId?: string) => void;
   isFavorite: (key: string, bucket?: string, profileId?: string) => boolean;
-  clearFavorites: () => void;
+  clearFavorites: (profileId?: string) => void;
 }
 
 export const useHistoryStore = create<HistoryState>()(
   persist(
     (set, get) => ({
       recentPaths: [],
+      recentPathEntries: [],
       recentItems: [],
       favorites: [],
       
-      addPath: (path) => set((state) => {
-        // Remove duplicates and keep only last 20
-        const filtered = state.recentPaths.filter(p => p !== path);
-        return { recentPaths: [path, ...filtered].slice(0, 20) };
+      addPath: (path, profileId) => set((state) => {
+        const nextEntry = { path, profileId };
+        const filteredEntries = state.recentPathEntries.filter((entry) => !(
+          entry.path === path &&
+          entry.profileId === profileId
+        ));
+        return {
+          recentPaths: [path, ...state.recentPaths.filter((existingPath) => existingPath !== path)].slice(0, 20),
+          recentPathEntries: [nextEntry, ...filteredEntries].slice(0, 20),
+        };
       }),
       
       addRecent: (item) => set((state) => {
@@ -83,14 +96,45 @@ export const useHistoryStore = create<HistoryState>()(
         (profileId ? i.profileId === profileId : true)
       ),
       
-      clearFavorites: () => set({ favorites: [] }),
+      clearFavorites: (profileId) => set((state) => ({
+        favorites: profileId
+          ? state.favorites.filter((item) => item.profileId !== profileId)
+          : []
+      })),
 
-      clearRecent: () => set({ recentItems: [] }),
+      clearRecent: (profileId) => set((state) => ({
+        recentItems: profileId
+          ? state.recentItems.filter((item) => item.profileId !== profileId)
+          : []
+      })),
 
-      clearHistory: () => set({ recentPaths: [], recentItems: [] }),
+      clearHistory: (profileId) => set((state) => ({
+        recentPaths: profileId
+          ? state.recentPaths
+          : [],
+        recentPathEntries: profileId
+          ? state.recentPathEntries.filter((entry) => entry.profileId !== profileId)
+          : [],
+        recentItems: profileId
+          ? state.recentItems.filter((item) => item.profileId !== profileId)
+          : [],
+      })),
     }),
     {
       name: 'brows3-history',
+      merge: (persistedState, currentState) => {
+        const persisted = persistedState as Partial<HistoryState> | undefined;
+        const legacyRecentPaths = Array.isArray(persisted?.recentPaths) ? persisted.recentPaths : [];
+        const persistedRecentPathEntries = Array.isArray(persisted?.recentPathEntries)
+          ? persisted.recentPathEntries
+          : legacyRecentPaths.map((path) => ({ path }));
+
+        return {
+          ...currentState,
+          ...persisted,
+          recentPathEntries: persistedRecentPathEntries,
+        };
+      },
     }
   )
 );

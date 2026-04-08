@@ -30,7 +30,8 @@ export default function PathBar() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { addTab, setActiveTab, tabs } = useAppStore();
-  const { recentPaths, addPath, clearHistory } = useHistoryStore();
+  const { recentPathEntries, addPath, clearHistory } = useHistoryStore();
+  const activeProfileId = useProfileStore((state) => state.activeProfileId);
   
   const [inputValue, setInputValue] = useState('');
   const [isOpen, setIsOpen] = useState(false);
@@ -38,6 +39,9 @@ export default function PathBar() {
   const [highlightedOption, setHighlightedOption] = useState<string | null>(null);
   
   const inputRef = useRef<HTMLInputElement>(null);
+  const recentPaths = recentPathEntries
+    .filter((entry) => !entry.profileId || entry.profileId === activeProfileId)
+    .map((entry) => entry.path);
 
   // Sync input value with current URL params
   useEffect(() => {
@@ -170,7 +174,7 @@ export default function PathBar() {
     const urlPath = `/bucket?name=${bucket}&region=${region}${finalPrefix ? `&prefix=${encodeURIComponent(finalPrefix)}` : ''}`;
     
     // Save to history
-    addPath(`s3://${bucket}${explicitRegion ? '@' + explicitRegion : ''}/${finalPrefix}`);
+    addPath(`s3://${bucket}${explicitRegion ? '@' + explicitRegion : ''}/${finalPrefix}`, activeProfileId || undefined);
 
     // Navigate using the URL path
     const { activeTabId, updateTab, tabs, setActiveTab } = useAppStore.getState();
@@ -265,7 +269,7 @@ export default function PathBar() {
               onMouseDown={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                clearHistory();
+                clearHistory(activeProfileId || undefined);
                 setIsOpen(false);
               }}
               sx={{

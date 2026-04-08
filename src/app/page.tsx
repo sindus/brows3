@@ -45,7 +45,7 @@ import { toast } from '@/store/toastStore';
 function HomeContent() {
   const router = useRouter();
   const { activeProfileId, profiles } = useProfileStore();
-  const { recentPaths, addPath } = useHistoryStore();
+  const { recentPathEntries, addPath } = useHistoryStore();
   const { addTab, activeTabId, updateTab } = useAppStore();
   
   // Use query parameter to toggle view instead of local state
@@ -71,6 +71,13 @@ function HomeContent() {
     );
   }, [buckets, deferredSearchQuery]);
 
+  const recentPaths = useMemo(
+    () => recentPathEntries
+      .filter((entry) => !entry.profileId || entry.profileId === activeProfileId)
+      .map((entry) => entry.path),
+    [activeProfileId, recentPathEntries]
+  );
+
   const handleFetchBuckets = () => {
     const path = '/?view=discovery';
     if (activeTabId && activeTabId !== 'home') {
@@ -81,7 +88,7 @@ function HomeContent() {
     router.push(path);
   };
 
-  const validateAndParsePath = (path: string): { bucket: string; prefix: string; hasTrailingSlash: boolean } | null => {
+  const validateAndParsePath = (path: string): { bucket: string; region?: string; prefix: string; hasTrailingSlash: boolean } | null => {
     const trimmedPath = path.trim();
     if (!trimmedPath.startsWith('s3://')) return null;
     
@@ -91,10 +98,11 @@ function HomeContent() {
     
     if (s3UriMatch) {
       const bucket = s3UriMatch[1];
+      const region = s3UriMatch[2];
       let rawPrefix = s3UriMatch[4] || '';
       const hasTrailingSlash = rawPrefix.endsWith('/');
       const prefix = rawPrefix.replace(/\/$/, '');
-      return { bucket, prefix, hasTrailingSlash };
+      return { bucket, region, prefix, hasTrailingSlash };
     }
     return null;
   };
@@ -117,14 +125,14 @@ function HomeContent() {
       return;
     }
     
-    const { bucket, prefix, hasTrailingSlash } = parsed;
+    const { bucket, region: explicitRegion, prefix, hasTrailingSlash } = parsed;
     isNavigating.current = true;
     setTimeout(() => { isNavigating.current = false; }, 500);
     
     const activeProfile = profiles.find(p => p.id === activeProfileId);
-    // Priority: 1. Discovered region from store, 2. Profile default
+    // Priority: 1. Explicit region, 2. Discovered region from store, 3. Profile default
     const { discoveredRegions } = useAppStore.getState();
-    const region = discoveredRegions[bucket] || activeProfile?.region || 'us-east-1';
+    const region = explicitRegion || discoveredRegions[bucket] || activeProfile?.region || 'us-east-1';
     
     // Determine if we should append a slash
     let finalPrefix = prefix;
@@ -138,7 +146,7 @@ function HomeContent() {
     }
 
     const urlPath = `/bucket?name=${bucket}&region=${region}${finalPrefix ? `&prefix=${encodeURIComponent(finalPrefix)}` : ''}`;
-    addPath(`s3://${bucket}/${finalPrefix}`);
+    addPath(`s3://${bucket}${explicitRegion ? '@' + explicitRegion : ''}/${finalPrefix}`, activeProfileId || undefined);
     addTab({ title: bucket, path: urlPath, icon: 'bucket' });
     router.push(urlPath);
   };

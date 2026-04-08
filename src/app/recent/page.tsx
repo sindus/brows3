@@ -85,7 +85,7 @@ export default function RecentPage() {
             color="error" 
             size="small"
             startIcon={<DeleteIcon />}
-            onClick={clearRecent}
+            onClick={() => clearRecent(activeProfileId || undefined)}
           >
             Clear All
           </Button>
