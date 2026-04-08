@@ -280,6 +280,7 @@ export default function ProfileDialog({ open, onClose, editProfile }: ProfileDia
         addProfile(created);
         
         if (profiles.length === 0) {
+          await profileApi.setActiveProfile(created.id);
           setActiveProfileId(created.id);
         }
       }
