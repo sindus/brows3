@@ -427,7 +427,7 @@ async fn generate_video_thumbnail(app: &AppHandle, presigned_url: &str) -> Optio
 
     let output = app
         .shell()
-        .sidecar("ffmpeg")
+        .sidecar("brows3-ffmpeg")
         .ok()?
         .args([
             "-y",
