@@ -184,6 +184,25 @@ jobs:
         run: |
           pnpm tauri build ${{ matrix.args }}
 
+      - name: Rename macOS app bundles to include architecture
+        if: matrix.platform == 'macos-latest'
+        shell: bash
+        run: |
+          if [[ "${{ matrix.args }}" == *"aarch64"* ]]; then
+            SUFFIX="aarch64"
+            TARGET_TRIPLE="aarch64-apple-darwin"
+          else
+            SUFFIX="x64"
+            TARGET_TRIPLE="x86_64-apple-darwin"
+          fi
+          MACOS_DIR="src-tauri/target/${TARGET_TRIPLE}/release/bundle/macos"
+          if [ -f "$MACOS_DIR/Brows3.app.tar.gz" ]; then
+            mv "$MACOS_DIR/Brows3.app.tar.gz" "$MACOS_DIR/Brows3_${SUFFIX}.app.tar.gz"
+          fi
+          if [ -f "$MACOS_DIR/Brows3.app.tar.gz.sig" ]; then
+            mv "$MACOS_DIR/Brows3.app.tar.gz.sig" "$MACOS_DIR/Brows3_${SUFFIX}.app.tar.gz.sig"
+          fi
+
       - name: Upload release assets
         shell: bash
         env:
