@@ -4,7 +4,7 @@ pub mod error;
 pub mod s3;
 pub mod transfer;
 
-use commands::{profiles, buckets, objects, operations, transfer as transfer_cmd};
+use commands::{profiles, buckets, objects, operations, transfer as transfer_cmd, thumbnails};
 use s3::S3ClientManager;
 use transfer::TransferManager;
 use std::sync::Arc;
@@ -20,6 +20,7 @@ pub fn run() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .manage(Arc::new(RwLock::new(S3ClientManager::new())))
         .manage(Arc::new(TransferManager::new()))
+        .manage(thumbnails::ThumbnailState::new())
         .setup(|app| {
             // Add native menu on macOS to enable Copy/Paste/Cut/SelectAll/Undo/Redo shortcuts
             // Add native menu to enable standard shortcuts and window controls
@@ -170,6 +171,12 @@ pub fn run() {
             transfer_cmd::remove_transfer,
             transfer_cmd::clear_completed_transfers,
             transfer_cmd::set_transfer_concurrency,
+            // Thumbnail commands
+            thumbnails::start_thumbnail_generation,
+            thumbnails::cancel_thumbnail_generation,
+            thumbnails::get_cache_info,
+            thumbnails::clear_thumbnail_cache,
+            thumbnails::set_cache_limit,
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|e| {

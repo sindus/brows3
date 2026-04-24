@@ -3,3 +3,4 @@ pub mod buckets;
 pub mod objects;
 pub mod operations;
 pub mod transfer;
+pub mod thumbnails;

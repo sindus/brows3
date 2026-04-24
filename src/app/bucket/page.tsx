@@ -58,6 +58,8 @@ import {
   Bolt as BoltIcon,
   Sort as SortIcon,
   Storage as StorageIcon,
+  ViewList as ViewListIcon,
+  GridView as GridViewIcon,
   FileCopy as FileCopyIcon,
   FilePresent as FilePresentIcon,
   Link as LinkIcon,
@@ -68,6 +70,7 @@ import {
   Edit as EditIcon,
 } from '@mui/icons-material';
 import { useObjects } from '@/hooks/useObjects';
+import { useThumbnails } from '@/hooks/useThumbnails';
 import { operationsApi, transferApi, objectApi, S3Object, copyToClipboard } from '@/lib/tauri';
 import { open, save } from '@tauri-apps/plugin-dialog';
 import { useTransferStore } from '@/store/transferStore';
@@ -79,7 +82,9 @@ import ObjectPreviewDialog from '@/components/dialogs/ObjectPreviewDialog';
 import { canObjectBeEdited, getObjectName } from '@/lib/objectCapabilities';
 import PresignedUrlDialog from '@/components/dialogs/PresignedUrlDialog';
 import { VirtualizedObjectTable } from '@/components/common/VirtualizedObjectTable';
+import { GridObjectView } from '@/components/common/GridObjectView';
 import { toast } from '@/store/toastStore';
+import { useAppStore } from '@/store/appStore';
 import { useHistoryStore } from '@/store/historyStore';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { StyledCheckbox } from '@/components/common/StyledCheckbox';
@@ -104,6 +109,13 @@ function BucketContent() {
   const prefix = searchParams.get('prefix') || '';
   
   const { data, isLoading, error: initialError, stats, refresh, loadMore, isLoadingMore, hasMore } = useObjects(bucketName || '', bucketRegion, prefix);
+  const { viewMode, setViewMode } = useAppStore();
+  const thumbnails = useThumbnails(
+    bucketName || '',
+    bucketRegion,
+    data?.objects || [],
+    viewMode === 'grid',
+  );
   const addJob = useTransferStore(state => state.addJob);
   const { addBucket } = useTabStore();
   const activeProfileId = useProfileStore(state => state.activeProfileId);
@@ -1173,13 +1185,29 @@ function BucketContent() {
           </>
         )}
 
+        <Tooltip title={viewMode === 'list' ? 'Switch to Grid View' : 'Switch to List View'}>
+          <IconButton
+            onClick={() => setViewMode(viewMode === 'list' ? 'grid' : 'list')}
+            size="small"
+            sx={{
+              bgcolor: 'background.paper',
+              border: '1px solid',
+              borderColor: 'divider',
+              boxShadow: '0 2px 5px rgba(0,0,0,0.05)',
+              '&:hover': { bgcolor: 'action.hover' }
+            }}
+          >
+            {viewMode === 'list' ? <GridViewIcon /> : <ViewListIcon />}
+          </IconButton>
+        </Tooltip>
+
         <Tooltip title="Refresh">
-            <IconButton 
-              onClick={() => refresh()} 
-              disabled={isLoading} 
-              color="primary" 
-              sx={{ 
-                bgcolor: 'background.paper', 
+            <IconButton
+              onClick={() => refresh()}
+              disabled={isLoading}
+              color="primary"
+              sx={{
+                bgcolor: 'background.paper',
                 border: '1px solid',
                 borderColor: 'divider',
                 boxShadow: '0 2px 5px rgba(0,0,0,0.05)',
@@ -1196,8 +1224,27 @@ function BucketContent() {
 
 
 
-      {/* Content Table - Virtualized for 20k+ objects */}
-      <VirtualizedObjectTable
+      {/* Content - List or Grid view */}
+      {viewMode === 'grid' && (
+        <GridObjectView
+          folders={displayData?.common_prefixes || []}
+          objects={displayData?.objects || []}
+          selectedKeys={selectedKeys}
+          isLoading={isLoading || isSearching}
+          onNavigate={handleNavigate}
+          onSelect={handleSelect}
+          onMenuOpen={handleMenuOpen}
+          onPreview={(key, size) => {
+            setStartInEditMode(false);
+            setPreviewKey(key);
+            setPreviewSize(size);
+            setPreviewOpen(true);
+          }}
+          onEndReached={loadMore}
+          thumbnails={thumbnails}
+        />
+      )}
+      {viewMode === 'list' && <VirtualizedObjectTable
         folders={displayData?.common_prefixes || []}
         objects={displayData?.objects || []}
         selectedKeys={selectedKeys}
@@ -1262,7 +1309,7 @@ function BucketContent() {
             .then(() => displaySuccess(`Copied: ${s3Uri}`))
             .catch((err) => displayError('Failed to copy path', String(err)));
         }}
-      />
+      />}
 
       {/* Context Menu */}
       <Menu

@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Brows3 — S3 Browser with Thumbnails</title>
+  <meta name="description" content="Brows3 is a high-performance S3 desktop browser with grid view, progressive image thumbnails, video thumbnails, and a local LRU cache. Free and open-source." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --border: #30363d;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --accent: #2f81f7;
+      --accent-hover: #388bfd;
+      --green: #3fb950;
+      --orange: #d29922;
+      --purple: #bc8cff;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { color: var(--accent-hover); text-decoration: underline; }
+
+    /* ── Nav ───────────────────────────────────── */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(13, 17, 23, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    nav .logo {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.5px;
+    }
+    nav .logo span { color: var(--accent); }
+    nav .nav-links { display: flex; gap: 24px; align-items: center; }
+    nav .nav-links a { color: var(--muted); font-size: 0.9rem; }
+    nav .nav-links a:hover { color: var(--text); text-decoration: none; }
+    .btn-nav {
+      background: var(--accent);
+      color: #fff !important;
+      padding: 6px 16px;
+      border-radius: 6px;
+      font-weight: 500;
+      font-size: 0.85rem !important;
+      transition: background 0.15s;
+    }
+    .btn-nav:hover { background: var(--accent-hover); text-decoration: none !important; }
+
+    /* ── Hero ──────────────────────────────────── */
+    .hero {
+      text-align: center;
+      padding: 100px 24px 80px;
+      max-width: 860px;
+      margin: 0 auto;
+    }
+    .hero .badge {
+      display: inline-block;
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--green);
+      background: rgba(63, 185, 80, 0.12);
+      border: 1px solid rgba(63, 185, 80, 0.3);
+      border-radius: 20px;
+      padding: 4px 12px;
+      margin-bottom: 28px;
+      letter-spacing: 0.3px;
+    }
+    .hero h1 {
+      font-size: clamp(2.4rem, 6vw, 4rem);
+      font-weight: 800;
+      letter-spacing: -1.5px;
+      line-height: 1.1;
+      margin-bottom: 20px;
+      color: var(--text);
+    }
+    .hero h1 em { color: var(--accent); font-style: normal; }
+    .hero p {
+      font-size: 1.15rem;
+      color: var(--muted);
+      max-width: 560px;
+      margin: 0 auto 40px;
+    }
+    .download-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      justify-content: center;
+    }
+    .btn-download {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+      border: 1px solid var(--accent);
+    }
+    .btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); text-decoration: none; color: #fff; }
+    .btn-secondary {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover { background: var(--surface); border-color: #555; text-decoration: none; color: var(--text); }
+    .btn-download .icon { font-size: 1.1rem; }
+    .download-note { margin-top: 16px; font-size: 0.78rem; color: var(--muted); }
+
+    /* ── Section container ─────────────────────── */
+    section { padding: 80px 24px; max-width: 1080px; margin: 0 auto; }
+    .section-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--accent);
+      margin-bottom: 12px;
+    }
+    .section-title {
+      font-size: clamp(1.6rem, 3.5vw, 2.4rem);
+      font-weight: 700;
+      letter-spacing: -0.8px;
+      margin-bottom: 16px;
+    }
+    .section-sub { color: var(--muted); max-width: 520px; margin-bottom: 48px; font-size: 1rem; }
+    hr.divider { border: none; border-top: 1px solid var(--border); }
+
+    /* ── New features grid ─────────────────────── */
+    .features-new {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 20px;
+    }
+    .feature-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      transition: border-color 0.15s, transform 0.15s;
+    }
+    .feature-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+    .feature-card .fc-icon {
+      font-size: 1.8rem;
+      margin-bottom: 14px;
+      display: block;
+    }
+    .feature-card h3 { font-size: 1rem; font-weight: 600; margin-bottom: 8px; }
+    .feature-card p { font-size: 0.88rem; color: var(--muted); line-height: 1.55; }
+    .feature-card .tag {
+      display: inline-block;
+      font-size: 0.65rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--green);
+      background: rgba(63, 185, 80, 0.1);
+      border: 1px solid rgba(63, 185, 80, 0.25);
+      border-radius: 4px;
+      padding: 2px 7px;
+      margin-bottom: 12px;
+    }
+
+    /* ── Classic features list ─────────────────── */
+    .features-classic {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 16px;
+    }
+    .classic-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .classic-item .ci-icon { font-size: 1.2rem; flex-shrink: 0; padding-top: 2px; }
+    .classic-item h4 { font-size: 0.9rem; font-weight: 600; margin-bottom: 2px; }
+    .classic-item p { font-size: 0.82rem; color: var(--muted); line-height: 1.45; }
+
+    /* ── Platforms ─────────────────────────────── */
+    .platforms {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 20px;
+    }
+    .platform-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+    }
+    .platform-card h3 { font-size: 1rem; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+    .platform-card .dl-list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+    .platform-card .dl-list a {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.88rem;
+      color: var(--text);
+      transition: border-color 0.15s;
+    }
+    .platform-card .dl-list a:hover { border-color: var(--accent); text-decoration: none; color: var(--text); }
+    .dl-label { font-weight: 500; }
+    .dl-ext { font-size: 0.75rem; color: var(--muted); font-family: monospace; }
+
+    /* ── Footer ────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 40px 24px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+    footer a { color: var(--muted); }
+    footer a:hover { color: var(--text); }
+    footer .footer-links { display: flex; gap: 24px; justify-content: center; flex-wrap: wrap; margin-bottom: 16px; }
+
+    @media (max-width: 600px) {
+      nav .nav-links { display: none; }
+      .hero { padding: 60px 16px 60px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav>
+  <span class="logo">Brows<span>3</span></span>
+  <div class="nav-links">
+    <a href="#new">What's New</a>
+    <a href="#features">Features</a>
+    <a href="#download">Download</a>
+    <a href="https://github.com/sindus/brows3" class="btn-nav">GitHub</a>
+  </div>
+</nav>
+
+<!-- Hero -->
+<div class="hero">
+  <div class="badge">Open Source · Free · v0.3.0</div>
+  <h1>Browse S3 like a<br/><em>file manager</em> — with thumbnails</h1>
+  <p>A high-performance S3 desktop browser with grid view, progressive image thumbnails, bundled video support, and a local LRU cache. Built with Rust + Tauri.</p>
+  <div class="download-grid">
+    <a href="https://github.com/sindus/brows3/releases/latest/download/Brows3_0.3.0_aarch64.dmg" class="btn-download btn-primary">
+      <span class="icon">🍎</span> macOS (Apple Silicon)
+    </a>
+    <a href="https://github.com/sindus/brows3/releases/latest/download/Brows3_0.3.0_x64-setup.exe" class="btn-download btn-secondary">
+      <span class="icon">🪟</span> Windows
+    </a>
+    <a href="https://github.com/sindus/brows3/releases/latest/download/brows3_0.3.0_amd64.AppImage" class="btn-download btn-secondary">
+      <span class="icon">🐧</span> Linux
+    </a>
+  </div>
+  <p class="download-note">macOS Intel, .deb and .msi also available on the <a href="https://github.com/sindus/brows3/releases/latest">Releases page</a>.</p>
+</div>
+
+<hr class="divider" />
+
+<!-- New features -->
+<section id="new">
+  <div class="section-label">What's new in this fork</div>
+  <h2 class="section-title">Visual browsing, finally.</h2>
+  <p class="section-sub">Everything that was missing from the original — thumbnails, grid view, and video support — now ships out of the box.</p>
+
+  <div class="features-new">
+    <div class="feature-card">
+      <span class="tag">New</span>
+      <span class="fc-icon">🖼️</span>
+      <h3>Grid / Icon View</h3>
+      <p>Toggle between list and grid with a single click. The grid shows thumbnails for images and videos, or file-type icons for everything else.</p>
+    </div>
+    <div class="feature-card">
+      <span class="tag">New</span>
+      <span class="fc-icon">✨</span>
+      <h3>Progressive Thumbnails</h3>
+      <p>Thumbnails load one by one as you browse — iCloud style. No waiting for the whole bucket. Thumbnails appear progressively in real time.</p>
+    </div>
+    <div class="feature-card">
+      <span class="tag">New</span>
+      <span class="fc-icon">🎬</span>
+      <h3>Video Thumbnails</h3>
+      <p>First-frame thumbnails extracted via bundled ffmpeg. No separate install needed — it works on every machine, right out of the box.</p>
+    </div>
+    <div class="feature-card">
+      <span class="tag">New</span>
+      <span class="fc-icon">🔍</span>
+      <h3>Content-Type Detection</h3>
+      <p>Images and videos without file extensions are detected via the S3 <code style="font-size:0.82em;color:var(--accent)">Content-Type</code> header. No more missing thumbnails.</p>
+    </div>
+    <div class="feature-card">
+      <span class="tag">New</span>
+      <span class="fc-icon">💾</span>
+      <h3>Local LRU Cache</h3>
+      <p>Thumbnails are cached on disk and reused instantly on subsequent visits. Default limit: 1 GB. Least-recently-used entries are evicted automatically.</p>
+    </div>
+    <div class="feature-card">
+      <span class="tag">New</span>
+      <span class="fc-icon">⚙️</span>
+      <h3>Cache Settings UI</h3>
+      <p>Configure the cache size limit (100 MB – 10 GB) with a slider, and clear the cache with one click — all from the Settings page.</p>
+    </div>
+  </div>
+</section>
+
+<hr class="divider" />
+
+<!-- Classic features -->
+<section id="features">
+  <div class="section-label">Core features</div>
+  <h2 class="section-title">Everything you expect, and more.</h2>
+  <p class="section-sub">All the power of the original brows3, now with visual browsing on top.</p>
+
+  <div class="features-classic">
+    <div class="classic-item">
+      <span class="ci-icon">⚡</span>
+      <div>
+        <h4>Instant Navigation</h4>
+        <p>Prefix-indexed caching makes folder traversal instantaneous after the first load.</p>
+      </div>
+    </div>
+    <div class="classic-item">
+      <span class="ci-icon">🔎</span>
+      <div>
+        <h4>Deep Recursive Search</h4>
+        <p>Find any file across millions of objects in milliseconds, even inside nested folders.</p>
+      </div>
+    </div>
+    <div class="classic-item">
+      <span class="ci-icon">📝</span>
+      <div>
+        <h4>Monaco Editor</h4>
+        <p>Edit text, JSON, and code files directly in S3 with VS Code's engine.</p>
+      </div>
+    </div>
+    <div class="classic-item">
+      <span class="ci-icon">📄</span>
+      <div>
+        <h4>Rich Previews</h4>
+        <p>High-res images, videos, PDFs — preview without downloading.</p>
+      </div>
+    </div>
+    <div class="classic-item">
+      <span class="ci-icon">🔒</span>
+      <div>
+        <h4>Secure Profiles</h4>
+        <p>Credentials stored in the OS keychain. Switch AWS accounts or S3-compatible providers instantly.</p>
+      </div>
+    </div>
+    <div class="classic-item">
+      <span class="ci-icon">📦</span>
+      <div>
+        <h4>Bulk Operations</h4>
+        <p>Upload, download, and delete multiple files or entire folder trees at once.</p>
+      </div>
+    </div>
+    <div class="classic-item">
+      <span class="ci-icon">🔗</span>
+      <div>
+        <h4>Presigned URLs</h4>
+        <p>Generate temporary shareable links with configurable expiry directly from the bucket view.</p>
+      </div>
+    </div>
+    <div class="classic-item">
+      <span class="ci-icon">🌐</span>
+      <div>
+        <h4>S3-Compatible Providers</h4>
+        <p>Works with MinIO, Cloudflare R2, Wasabi, DigitalOcean Spaces, and any S3-compatible endpoint.</p>
+      </div>
+    </div>
+    <div class="classic-item">
+      <span class="ci-icon">🔄</span>
+      <div>
+        <h4>Auto-Updates</h4>
+        <p>Signed background updates keep you on the latest secure version automatically.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider" />
+
+<!-- Download -->
+<section id="download">
+  <div class="section-label">Download</div>
+  <h2 class="section-title">Available for all platforms.</h2>
+  <p class="section-sub">Free, open-source, and MIT-licensed.</p>
+
+  <div class="platforms">
+    <div class="platform-card">
+      <h3>🍎 macOS</h3>
+      <ul class="dl-list">
+        <li>
+          <a href="https://github.com/sindus/brows3/releases/latest/download/Brows3_0.3.0_aarch64.dmg">
+            <span class="dl-label">Apple Silicon</span>
+            <span class="dl-ext">.dmg</span>
+          </a>
+        </li>
+        <li>
+          <a href="https://github.com/sindus/brows3/releases/latest/download/Brows3_0.3.0_x64.dmg">
+            <span class="dl-label">Intel (x64)</span>
+            <span class="dl-ext">.dmg</span>
+          </a>
+        </li>
+      </ul>
+    </div>
+    <div class="platform-card">
+      <h3>🪟 Windows</h3>
+      <ul class="dl-list">
+        <li>
+          <a href="https://github.com/sindus/brows3/releases/latest/download/Brows3_0.3.0_x64-setup.exe">
+            <span class="dl-label">Installer</span>
+            <span class="dl-ext">.exe (NSIS)</span>
+          </a>
+        </li>
+        <li>
+          <a href="https://github.com/sindus/brows3/releases/latest/download/Brows3_0.3.0_x64_en-US.msi">
+            <span class="dl-label">MSI Package</span>
+            <span class="dl-ext">.msi</span>
+          </a>
+        </li>
+      </ul>
+    </div>
+    <div class="platform-card">
+      <h3>🐧 Linux</h3>
+      <ul class="dl-list">
+        <li>
+          <a href="https://github.com/sindus/brows3/releases/latest/download/brows3_0.3.0_amd64.AppImage">
+            <span class="dl-label">AppImage</span>
+            <span class="dl-ext">.AppImage</span>
+          </a>
+        </li>
+        <li>
+          <a href="https://github.com/sindus/brows3/releases/latest/download/brows3_0.3.0_amd64.deb">
+            <span class="dl-label">Debian / Ubuntu</span>
+            <span class="dl-ext">.deb</span>
+          </a>
+        </li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer>
+  <div class="footer-links">
+    <a href="https://github.com/sindus/brows3">GitHub</a>
+    <a href="https://github.com/sindus/brows3/releases">Releases</a>
+    <a href="https://github.com/sindus/brows3/issues">Issues</a>
+    <a href="https://github.com/rgcsekaraa/brows3">Original project</a>
+  </div>
+  <p>Forked from <a href="https://github.com/rgcsekaraa/brows3">rgcsekaraa/brows3</a>. Original work by <a href="https://www.linkedin.com/in/rgcsekaraa/">rgcsekaraa</a>. MIT License.</p>
+</footer>
+
+</body>
+</html>

@@ -304,6 +304,34 @@ export interface TransferEvent {
   finished_at?: number;
 }
 
+export interface CacheInfo {
+  total_size_bytes: number;
+  limit_bytes: number;
+  entry_count: number;
+}
+
+export const thumbnailApi = {
+  async startGeneration(bucketName: string, bucketRegion: string | undefined, keys: string[]): Promise<void> {
+    return invoke<void>('start_thumbnail_generation', { bucket: bucketName, bucketRegion, keys });
+  },
+
+  async cancelGeneration(): Promise<void> {
+    return invoke<void>('cancel_thumbnail_generation');
+  },
+
+  async getCacheInfo(): Promise<CacheInfo> {
+    return invoke<CacheInfo>('get_cache_info');
+  },
+
+  async clearCache(): Promise<void> {
+    return invoke<void>('clear_thumbnail_cache');
+  },
+
+  async setCacheLimit(limitBytes: number): Promise<void> {
+    return invoke<void>('set_cache_limit', { limitBytes });
+  },
+};
+
 export const transferApi = {
   async queueUpload(bucketName: string, bucketRegion: string | undefined, key: string, localPath: string, totalBytes: number): Promise<string> {
     return invoke<string>('queue_upload', { bucketName, bucketRegion, key, localPath, totalBytes });
