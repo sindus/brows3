@@ -46,9 +46,6 @@ const requiredAssets = [
   `Brows3_${version}_x64.dmg`,
   `Brows3_${version}_x64_en-US.msi`,
   `Brows3_${version}_x64_en-US.msi.sig`,
-  'Brows3Team.Brows3.installer.yaml',
-  'Brows3Team.Brows3.locale.en-US.yaml',
-  'Brows3Team.Brows3.yaml',
 ];
 
 const assets = Array.isArray(release.assets) ? release.assets : [];

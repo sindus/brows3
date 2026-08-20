@@ -613,23 +613,12 @@ jobs:
           cat update.json
           echo "========================="
 
-          # Generate winget manifests from the actual release installer URL and SHA256.
-          printf '%s' "$RELEASE_INFO" > release-info.json
-          node .github/scripts/write-winget-manifests.js release-info.json dist/winget
-
-          node .github/scripts/validate-generated-release-metadata.js \
-            release-info.json \
-            update.json \
-            dist/winget/Brows3Team.Brows3.installer.yaml \
-            "$SIGNATURE_DIR" \
-            "$VERSION"
-
-          echo ""
-          echo "=== Generated winget manifests ==="
-          ls -la dist/winget
-          echo "=================================="
-
-          gh release upload "$TAG" dist/winget/*.yaml --clobber
+          # Note: upstream also generates and validates Winget manifests here
+          # (write-winget-manifests.js / validate-generated-release-metadata.js),
+          # publishing under their own registered `Brows3Team.Brows3` winget
+          # package. This fork has no winget package of its own, and those
+          # scripts hardcode upstream's repo/publisher identity, so that step
+          # is intentionally skipped here.
 
           # Re-fetch and validate the complete draft after the final assets have
           # been uploaded. A failed check leaves the release unpublished.

@@ -28,9 +28,6 @@ const requiredNames = [
   `Brows3_${version}_x64.dmg`,
   `Brows3_${version}_x64_en-US.msi`,
   `Brows3_${version}_x64_en-US.msi.sig`,
-  'Brows3Team.Brows3.installer.yaml',
-  'Brows3Team.Brows3.locale.en-US.yaml',
-  'Brows3Team.Brows3.yaml',
 ];
 
 function runValidator(overrides = {}) {
@@ -59,7 +56,7 @@ test('accepts a complete, signed draft release', (t) => {
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
 
   assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /Validated 22 required assets/);
+  assert.match(result.stdout, /Validated 19 required assets/);
 });
 
 test('rejects publishing with a missing platform asset', (t) => {
