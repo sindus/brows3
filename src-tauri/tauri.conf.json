@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Brows3",
-  "version": "0.2.44",
+  "version": "0.5.6",
   "identifier": "com.brows3",
   "build": {
     "frontendDist": "../out",
@@ -28,7 +28,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' asset: https: data:; connect-src 'self' https: ipc:; frame-src 'self' https:;"
+      "csp": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' asset: https: data:; connect-src 'self' https: ipc:; frame-src 'self' https:; media-src 'self' https: blob:;"
     }
   },
   "bundle": {
@@ -41,6 +41,9 @@
       "appimage",
       "dmg",
       "app"
+    ],
+    "externalBin": [
+      "binaries/brows3-ffmpeg"
     ],
     "icon": [
       "icons/32x32.png",
@@ -76,10 +79,10 @@
     "updater": {
       "active": true,
       "endpoints": [
-        "https://raw.githubusercontent.com/rgcsekaraa/brows3/main/update.json"
+        "https://raw.githubusercontent.com/sindus/brows3/main/update.json"
       ],
       "dialog": false,
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDNGOEU2QTBFM0RDNTFCMEIKUldRTEc4VTlEbXFPUDhRdE9DQTZTSDNzWE5Rb0IzUG9UTEdjUlhQTVVrUjFDYU1PTEw0TThBRjQK"
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEJEOENDRkRBQUNDNjk4OEYKUldTUG1NYXMycytNdmZQUnE2L0paWm9Ua2x5Yit1Q1dZckdFUHRzSUp5c1g1c3dlbFhPT01iRHUK"
     }
   }
 }

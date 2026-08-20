@@ -12,9 +12,11 @@ export interface Tab {
 }
 
 type ThemeMode = 'light' | 'dark' | 'system';
+type ViewMode = 'list' | 'grid';
 
 interface AppState {
   themeMode: ThemeMode;
+  viewMode: ViewMode;
   sidebarOpen: boolean;
   sidebarWidth: number;
   
@@ -27,6 +29,7 @@ interface AppState {
   
   // Actions
   setThemeMode: (mode: ThemeMode) => void;
+  setViewMode: (mode: ViewMode) => void;
   toggleSidebar: () => void;
   setSidebarOpen: (open: boolean) => void;
   setSidebarWidth: (width: number) => void;
@@ -47,6 +50,7 @@ export const useAppStore = create<AppState>()(
   persist(
     (set) => ({
       themeMode: 'system',
+      viewMode: 'list',
       sidebarOpen: true,
       sidebarWidth: 280,
       
@@ -56,6 +60,7 @@ export const useAppStore = create<AppState>()(
       discoveredRegions: {},
       
       setThemeMode: (themeMode) => set({ themeMode }),
+      setViewMode: (viewMode) => set({ viewMode }),
       
       toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
       

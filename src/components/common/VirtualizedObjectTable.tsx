@@ -33,15 +33,9 @@ import {
 } from '@mui/icons-material';
 import { TableVirtuoso, type TableComponents } from 'react-virtuoso';
 import { S3Object } from '@/lib/tauri';
-import { formatSize } from '@/lib/utils';
+import { formatSize, getFileExtension } from '@/lib/utils';
 import { StyledCheckbox } from './StyledCheckbox';
 import { canObjectBeEdited, canObjectBePreviewed } from '@/lib/objectCapabilities';
-
-// Get extension - simple and fast
-const getExt = (name: string): string => {
-  const i = name.lastIndexOf('.');
-  return i > 0 ? name.slice(i + 1).toLowerCase() : '';
-};
 
 // File icon lookup - cached for performance
 const ICON_STYLES = { fontSize: 18 };
@@ -103,7 +97,7 @@ const DEFAULT_FILE_ICON = <FileIcon sx={{ color: '#9E9E9E', ...ICON_STYLES }} />
 
 const getIcon = (name: string, isFolder: boolean): React.ReactNode => {
   if (isFolder) return FOLDER_ICON;
-  const ext = getExt(name);
+  const ext = getFileExtension(name);
   return ICON_MAP[ext] || DEFAULT_FILE_ICON;
 };
 
@@ -214,7 +208,7 @@ const RowContent = memo(function RowContent({
   onEdit?: (key: string) => void;
   onMenuOpen: (event: React.MouseEvent<HTMLElement>, key: string, isFolder: boolean) => void;
 }) {
-  const ext = getExt(row.name);
+  const ext = getFileExtension(row.name);
   const canPreview = !row.isFolder && canObjectBePreviewed(row.name);
   const canEdit = !row.isFolder && canObjectBeEdited(row.name);
 

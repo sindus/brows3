@@ -1,4 +1,5 @@
 import { useMonitorStore } from '@/store/monitorStore';
+import { useConsoleStore, toAwsCliCommand } from '@/store/consoleStore';
 
 // Check if running in Tauri environment
 export const isTauri = (): boolean => {
@@ -17,30 +18,37 @@ const getTauriInvoke = async () => {
 // Monitored invoke wrapper
 const invoke = async <T>(cmd: string, args?: Record<string, unknown>): Promise<T> => {
   const store = useMonitorStore.getState();
+  const console_ = useConsoleStore.getState();
   store.incrementRequests();
-  
+
+  const cliCommand = toAwsCliCommand(cmd, args);
+  const commands = Array.isArray(cliCommand) ? cliCommand : cliCommand ? [cliCommand] : [];
+  const consoleIds = commands.map((c) => console_.addEntry(c));
+  const startTime = Date.now();
+
   try {
     const tauriInvoke = await getTauriInvoke();
     const result = await tauriInvoke<T>(cmd, args);
     store.addLog('success', cmd);
+    const duration = Date.now() - startTime;
+    consoleIds.forEach((id) => console_.resolveEntry(id, 'success', undefined, duration));
     return result;
   } catch (err) {
     store.incrementFailures();
-    
+
     let errorMessage = String(err);
     if (err instanceof Error) {
       errorMessage = err.message;
     } else if (err && typeof err === 'object') {
-      // Handle serialization of backend errors
       try {
         errorMessage = JSON.stringify(err);
       } catch {
-        // Fallback if circular or not serializable
         errorMessage = String(err);
       }
     }
 
     store.addLog('error', cmd, errorMessage);
+    consoleIds.forEach((id) => console_.resolveEntry(id, 'error', errorMessage, Date.now() - startTime));
     throw err;
   }
 };
@@ -392,6 +400,34 @@ export interface TransferEvent {
   status: TransferJob['status'];
   finished_at?: number;
 }
+
+export interface CacheInfo {
+  total_size_bytes: number;
+  limit_bytes: number;
+  entry_count: number;
+}
+
+export const thumbnailApi = {
+  async startGeneration(bucketName: string, bucketRegion: string | undefined, keys: string[]): Promise<void> {
+    return invoke<void>('start_thumbnail_generation', { bucket: bucketName, bucketRegion, keys });
+  },
+
+  async cancelGeneration(): Promise<void> {
+    return invoke<void>('cancel_thumbnail_generation');
+  },
+
+  async getCacheInfo(): Promise<CacheInfo> {
+    return invoke<CacheInfo>('get_cache_info');
+  },
+
+  async clearCache(): Promise<void> {
+    return invoke<void>('clear_thumbnail_cache');
+  },
+
+  async setCacheLimit(limitBytes: number): Promise<void> {
+    return invoke<void>('set_cache_limit', { limitBytes });
+  },
+};
 
 export const transferApi = {
   async queueUpload(bucketName: string, bucketRegion: string | undefined, key: string, localPath: string, totalBytes: number): Promise<string> {

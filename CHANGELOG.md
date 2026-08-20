@@ -5,6 +5,47 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.6] - 2026-08-20
+
+### Added
+- **AWS IAM Identity Center (SSO)**: Sign in with configured AWS SSO profiles through the SDK credential chain, with profile discovery and an AWS CLI v2 browser sign-in action for refreshing cached sessions.
+- **Content-Type Detection And Editing**: Uploads infer MIME types from object names, and Properties provides a validated free-form Content-Type field with common suggestions.
+- **Audio Previews**: In-app audio playback alongside existing image, video, and PDF previews.
+- **Configurable Text Preview Limit**: A persisted 1–100 MB text/HTML/code preview limit in Settings.
+- **File and Folder Permissions**: View and apply S3 object ACLs for files and recursively for folders.
+- **Diagnostic Log Access**: Settings shows the desktop log file path with a copy action.
+- **Linux ARM64 and Windows Portable Builds**: Releases now also publish a Linux ARM64 AppImage and a Windows portable `.zip`.
+
+### Fixed
+- **Large Multipart Uploads**: Files at or above 100 MiB now use retryable, bounded-memory S3 multipart uploads, including objects beyond the 5 GiB single-PUT limit.
+- **Persistent Linux Secrets**: Linux now explicitly uses the freedesktop Secret Service backend instead of the volatile kernel session keyring.
+- **Shared-Profile Custom Endpoints**: AWS shared-config profiles with `endpoint_url` now use path-style bucket addressing, matching Custom Endpoint profiles on MinIO-style providers.
+- **Large-Bucket Sorting And Deep Search**: Bounded, complete-result sorting and deep search across large buckets.
+
+### Changed
+- **Release Quality Gate**: Publishing now waits for frontend linting, TypeScript checks, production export, Rust formatting, Clippy, backend tests, and native Windows validation before a release build starts; refuses to overwrite an already-published release tag.
+- Synced with upstream [rgcsekaraa/brows3](https://github.com/rgcsekaraa/brows3) through v0.2.44 while keeping this fork's grid view, thumbnails, video previews, and AWS CLI console panel.
+
+## [0.5.5] - 2026-05-22
+
+### Improved
+- **Animated Video Previews**: Replaced GIF hover previews with animated WebP. FFmpeg's `libwebp` encoder produces smaller files with better color fidelity (millions of colors vs. 256-palette GIF) and no banding artifacts.
+
+## [0.5.4] - 2026-05-22
+
+### Fixed
+- **Auto-updater signing**: Rotated signing keypair to fix "signature was created with a different key" error on update. Users on older versions will need to install this release manually once; auto-updates will work correctly from v0.5.4 onward.
+
+## [0.5.3] - 2026-05-21
+
+### Improved
+- **Thumbnail Quality**: Increased thumbnail resolution from 200px to 400px and set JPEG encoding quality to 85%, producing sharper previews with a reasonable file size.
+- **Code Deduplication**: Replaced duplicate local `getExt` helpers in `GridObjectView` and `VirtualizedObjectTable` with the shared `getFileExtension` utility.
+
+### Fixed
+- **Lint Fixes**: Changed mutable `let` bindings to `const` in `page.tsx` and `PathBar.tsx` where the value is never reassigned.
+- **Rust Idioms**: Updated `&PathBuf` parameters to `&Path` in thumbnail cache helpers, and extracted a shared `cache_file_path` to remove duplicated SHA-256 hashing logic.
+
 ## [Unreleased]
 
 ## [0.2.44] - 2026-08-12

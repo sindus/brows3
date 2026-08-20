@@ -42,3 +42,6 @@ next-env.d.ts
 
 # Monaco editor (auto-generated from node_modules during build)
 /public/monaco-editor/
+
+# Bundled ffmpeg sidecar binaries (downloaded at build time, not committed)
+/src-tauri/binaries/

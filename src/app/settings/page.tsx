@@ -22,6 +22,8 @@ import {
   Alert,
 } from '@mui/material';
 import {
+  PhotoLibrary as ThumbnailIcon,
+  Cached as CacheIcon,
   Update as UpdateIcon,
   Folder as FolderIcon,
   DeleteSweep as ClearIcon,
@@ -40,7 +42,8 @@ import { useAppStore } from '@/store/appStore';
 import { useMonitorStore } from '@/store/monitorStore';
 import { invalidateBucketCache } from '@/hooks/useBuckets';
 import { toast } from '@/store/toastStore';
-import { copyToClipboard, invalidateCache, isTauri, logApi, type LogFileInfo } from '@/lib/tauri';
+import { copyToClipboard, invalidateCache, isTauri, logApi, thumbnailApi, type CacheInfo, type LogFileInfo } from '@/lib/tauri';
+import { formatSize } from '@/lib/utils';
 
 export default function SettingsPage() {
   // Theme is controlled by appStore (used by the actual app)
@@ -59,6 +62,12 @@ export default function SettingsPage() {
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const [pendingTransferConcurrency, setPendingTransferConcurrency] = useState(maxConcurrentTransfers);
   const [pendingPreviewLimit, setPendingPreviewLimit] = useState(maxTextPreviewSizeMb);
+
+  // Thumbnail cache state
+  const [cacheInfo, setCacheInfo] = useState<CacheInfo | null>(null);
+  const [isClearingCache, setIsClearingCache] = useState(false);
+  // Slider value in MiB for smoother UX; converted to bytes when committed
+  const [pendingLimitMib, setPendingLimitMib] = useState(1024); // default 1 GiB
   
   useEffect(() => {
     if (!isTauri()) {
@@ -76,6 +85,12 @@ export default function SettingsPage() {
     import('@tauri-apps/api/path').then(({ appDataDir: getAppDataDir }) => {
       getAppDataDir().then(setAppDataDir).catch(() => setAppDataDir('Unknown'));
     });
+
+    // Load thumbnail cache info
+    thumbnailApi.getCacheInfo().then((info) => {
+      setCacheInfo(info);
+      setPendingLimitMib(Math.round(info.limit_bytes / (1024 * 1024)));
+    }).catch(() => {});
 
     logApi.getLogFileInfo()
       .then(setLogFileInfo)
@@ -343,6 +358,83 @@ export default function SettingsPage() {
                 Clear Cache
               </Button>
             </ListItemSecondaryAction>
+          </ListItem>
+        </List>
+      </Paper>
+
+      {/* Thumbnail Cache Section */}
+      <Paper variant="outlined" sx={{ mb: 3 }}>
+        <Box sx={{ p: 2, bgcolor: 'action.hover', borderBottom: 1, borderColor: 'divider', display: 'flex', alignItems: 'center', gap: 1 }}>
+          <ThumbnailIcon color="primary" fontSize="small" />
+          <Typography variant="subtitle1" fontWeight={600}>Thumbnail Cache</Typography>
+        </Box>
+        <List>
+          {/* Usage */}
+          <ListItem divider>
+            <ListItemText
+              primary="Cache Usage"
+              secondary={
+                cacheInfo
+                  ? `${formatSize(cacheInfo.total_size_bytes)} used · ${cacheInfo.entry_count} thumbnails`
+                  : 'Loading...'
+              }
+            />
+            <ListItemSecondaryAction>
+              <Button
+                variant="outlined"
+                size="small"
+                color="error"
+                startIcon={<ClearIcon />}
+                disabled={isClearingCache || !cacheInfo}
+                onClick={async () => {
+                  setIsClearingCache(true);
+                  try {
+                    await thumbnailApi.clearCache();
+                    const info = await thumbnailApi.getCacheInfo();
+                    setCacheInfo(info);
+                    toast.success('Thumbnail cache cleared');
+                  } catch (e) {
+                    toast.error('Failed to clear cache', String(e));
+                  } finally {
+                    setIsClearingCache(false);
+                  }
+                }}
+              >
+                {isClearingCache ? 'Clearing...' : 'Clear Cache'}
+              </Button>
+            </ListItemSecondaryAction>
+          </ListItem>
+
+          {/* Limit slider */}
+          <ListItem>
+            <ListItemText
+              primary="Cache Limit"
+              secondary={`${formatSize(pendingLimitMib * 1024 * 1024)} — thumbnails are evicted LRU when exceeded`}
+            />
+            <Box sx={{ width: 220, mr: 2 }}>
+              <Slider
+                value={pendingLimitMib}
+                min={100}
+                max={10240}
+                step={100}
+                valueLabelDisplay="auto"
+                valueLabelFormat={(v) => `${v >= 1024 ? `${(v / 1024).toFixed(1)} GB` : `${v} MB`}`}
+                onChange={(_, val) => setPendingLimitMib(val as number)}
+                onChangeCommitted={async (_, val) => {
+                  const mib = val as number;
+                  setPendingLimitMib(mib);
+                  const bytes = mib * 1024 * 1024;
+                  try {
+                    await thumbnailApi.setCacheLimit(bytes);
+                    const info = await thumbnailApi.getCacheInfo();
+                    setCacheInfo(info);
+                    toast.success('Cache limit updated', `Set to ${formatSize(bytes)}`);
+                  } catch (e) {
+                    toast.error('Failed to update cache limit', String(e));
+                  }
+                }}
+              />
+            </Box>
           </ListItem>
         </List>
       </Paper>

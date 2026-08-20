@@ -4,7 +4,7 @@ pub mod error;
 pub mod s3;
 pub mod transfer;
 
-use commands::{buckets, objects, operations, profiles, transfer as transfer_cmd};
+use commands::{buckets, objects, operations, profiles, thumbnails, transfer as transfer_cmd};
 use s3::S3ClientManager;
 use serde::Serialize;
 use std::sync::Arc;
@@ -59,11 +59,12 @@ pub fn run() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .manage(Arc::new(RwLock::new(S3ClientManager::new())))
         .manage(Arc::new(TransferManager::new()))
+        .manage(thumbnails::ThumbnailState::new())
         .setup(|app| {
             // Add native menu on macOS to enable Copy/Paste/Cut/SelectAll/Undo/Redo shortcuts
             // Add native menu to enable standard shortcuts and window controls
             {
-                use tauri::menu::{Menu, PredefinedMenuItem, Submenu};
+                use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
 
                 let handle = app.handle();
 
@@ -86,15 +87,15 @@ pub fn run() {
                     ],
                 )?;
 
+                // On Linux/Windows, PredefinedMenuItem::quit/minimize/maximize/close_window
+                // don't render in GTK menus — use custom MenuItem with manual handlers instead.
                 #[cfg(not(target_os = "macos"))]
-                let file_menu = Submenu::with_items(
-                    handle,
-                    "File",
-                    true,
-                    &[&PredefinedMenuItem::quit(handle, None)?],
-                )?;
+                let quit_item = MenuItem::with_id(handle, "quit", "Quit", true, Some("Alt+F4"))?;
 
-                // Edit Menu (Common)
+                #[cfg(not(target_os = "macos"))]
+                let file_menu = Submenu::with_items(handle, "File", true, &[&quit_item])?;
+
+                // Edit Menu (Common) — PredefinedMenuItem works on all platforms for text ops
                 let edit_menu = Submenu::with_items(
                     handle,
                     "Edit",
@@ -110,7 +111,8 @@ pub fn run() {
                     ],
                 )?;
 
-                // Window Menu (Common)
+                // Window Menu — predefined on macOS, custom items on Linux/Windows
+                #[cfg(target_os = "macos")]
                 let window_menu = Submenu::with_items(
                     handle,
                     "Window",
@@ -123,6 +125,34 @@ pub fn run() {
                     ],
                 )?;
 
+                #[cfg(not(target_os = "macos"))]
+                let minimize_item =
+                    MenuItem::with_id(handle, "minimize", "Minimize", true, None::<&str>)?;
+                #[cfg(not(target_os = "macos"))]
+                let maximize_item = MenuItem::with_id(
+                    handle,
+                    "maximize",
+                    "Maximize / Restore",
+                    true,
+                    None::<&str>,
+                )?;
+                #[cfg(not(target_os = "macos"))]
+                let close_item =
+                    MenuItem::with_id(handle, "close_window", "Close Window", true, None::<&str>)?;
+
+                #[cfg(not(target_os = "macos"))]
+                let window_menu = Submenu::with_items(
+                    handle,
+                    "Window",
+                    true,
+                    &[
+                        &minimize_item,
+                        &maximize_item,
+                        &PredefinedMenuItem::separator(handle)?,
+                        &close_item,
+                    ],
+                )?;
+
                 #[cfg(target_os = "macos")]
                 let menu = Menu::with_items(handle, &[&app_menu, &edit_menu, &window_menu])?;
 
@@ -131,6 +161,28 @@ pub fn run() {
 
                 app.set_menu(menu)?;
             }
+
+            // Handle custom menu item events (Linux/Windows)
+            #[cfg(not(target_os = "macos"))]
+            app.on_menu_event(|app_handle, event| match event.id().as_ref() {
+                "quit" => app_handle.exit(0),
+                "minimize" => {
+                    if let Some(w) = app_handle.get_webview_window("main") {
+                        let _ = w.minimize();
+                    }
+                }
+                "maximize" => {
+                    if let Some(w) = app_handle.get_webview_window("main") {
+                        let _ = w.maximize();
+                    }
+                }
+                "close_window" => {
+                    if let Some(w) = app_handle.get_webview_window("main") {
+                        let _ = w.close();
+                    }
+                }
+                _ => {}
+            });
 
             // Initialize logging for both debug and release builds
             app.handle().plugin(
@@ -239,6 +291,12 @@ pub fn run() {
             transfer_cmd::remove_transfer,
             transfer_cmd::clear_completed_transfers,
             transfer_cmd::set_transfer_concurrency,
+            // Thumbnail commands
+            thumbnails::start_thumbnail_generation,
+            thumbnails::cancel_thumbnail_generation,
+            thumbnails::get_cache_info,
+            thumbnails::clear_thumbnail_cache,
+            thumbnails::set_cache_limit,
             get_log_file_info,
         ])
         .run(tauri::generate_context!())

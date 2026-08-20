@@ -40,6 +40,8 @@ import {
   Search as SearchIcon,
   Close as CloseIcon,
   Storage as StorageIcon,
+  ViewList as ViewListIcon,
+  GridView as GridViewIcon,
   FileCopy as FileCopyIcon,
   FilePresent as FilePresentIcon,
   Link as LinkIcon,
@@ -48,9 +50,13 @@ import {
   FolderZip as FolderZipIcon,
   ArrowDropDown as ArrowDropDownIcon,
   Edit as EditIcon,
+  Terminal as TerminalIcon,
   Lock as LockIcon,
 } from '@mui/icons-material';
 import { useObjects } from '@/hooks/useObjects';
+import { useThumbnails } from '@/hooks/useThumbnails';
+import { ConsolePanel } from '@/components/common/ConsolePanel';
+import { useConsoleStore } from '@/store/consoleStore';
 import { operationsApi, transferApi, objectApi, S3Object, copyToClipboard } from '@/lib/tauri';
 import { open, save } from '@tauri-apps/plugin-dialog';
 import { useTransferStore } from '@/store/transferStore';
@@ -62,10 +68,13 @@ import ObjectPreviewDialog from '@/components/dialogs/ObjectPreviewDialog';
 import { canObjectBeEdited, getObjectName } from '@/lib/objectCapabilities';
 import PresignedUrlDialog from '@/components/dialogs/PresignedUrlDialog';
 import { VirtualizedObjectTable } from '@/components/common/VirtualizedObjectTable';
+import { GridObjectView } from '@/components/common/GridObjectView';
 import { toast } from '@/store/toastStore';
+import { useAppStore } from '@/store/appStore';
 import { useHistoryStore } from '@/store/historyStore';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { StyledCheckbox } from '@/components/common/StyledCheckbox';
+import { formatSize } from '@/lib/utils';
 
 // Concurrent paste batch size
 const PASTE_CONCURRENCY = 5;
@@ -89,9 +98,18 @@ function BucketContent() {
   const [sortField, setSortField] = useState<'name' | 'size' | 'date' | 'class'>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
-  const { data, isLoading, error: initialError, refresh, loadMore } = useObjects(bucketName || '', bucketRegion, prefix, sortField, sortDirection);
+  const { data, isLoading, error: initialError, stats, refresh, loadMore, isLoadingMore, hasMore } = useObjects(bucketName || '', bucketRegion, prefix, sortField, sortDirection);
+  const { viewMode, setViewMode } = useAppStore();
+  const { thumbnails, previews } = useThumbnails(
+    bucketName || '',
+    bucketRegion,
+    data?.objects || [],
+    viewMode === 'grid',
+  );
   const addJob = useTransferStore(state => state.addJob);
   const activeProfileId = useProfileStore(state => state.activeProfileId);
+  const consoleOpen = useConsoleStore((s) => s.isOpen);
+  const toggleConsole = useConsoleStore((s) => s.toggle);
 
   // Search State
   const [searchQuery, setSearchQuery] = useState('');
@@ -1151,6 +1169,22 @@ function BucketContent() {
           </>
         )}
 
+        <Tooltip title={viewMode === 'list' ? 'Switch to Grid View' : 'Switch to List View'}>
+          <IconButton
+            onClick={() => setViewMode(viewMode === 'list' ? 'grid' : 'list')}
+            size="small"
+            sx={{
+              bgcolor: 'background.paper',
+              border: '1px solid',
+              borderColor: 'divider',
+              boxShadow: '0 2px 5px rgba(0,0,0,0.05)',
+              '&:hover': { bgcolor: 'action.hover' }
+            }}
+          >
+            {viewMode === 'list' ? <GridViewIcon /> : <ViewListIcon />}
+          </IconButton>
+        </Tooltip>
+
         <Tooltip title="Refresh">
             <IconButton
               onClick={() => refresh()}
@@ -1167,6 +1201,22 @@ function BucketContent() {
             <RefreshIcon className={isLoading ? 'spin-animation' : ''} />
             </IconButton>
         </Tooltip>
+
+        <Tooltip title={consoleOpen ? 'Hide console' : 'Show console'}>
+          <IconButton
+            onClick={toggleConsole}
+            sx={{
+              bgcolor: consoleOpen ? 'primary.main' : 'background.paper',
+              border: '1px solid',
+              borderColor: consoleOpen ? 'primary.main' : 'divider',
+              color: consoleOpen ? 'primary.contrastText' : 'text.primary',
+              boxShadow: '0 2px 5px rgba(0,0,0,0.05)',
+              '&:hover': { bgcolor: consoleOpen ? 'primary.dark' : 'action.hover' },
+            }}
+          >
+            <TerminalIcon />
+          </IconButton>
+        </Tooltip>
         </Box>
       </Box>
 
@@ -1174,8 +1224,28 @@ function BucketContent() {
 
 
 
-      {/* Content Table - Virtualized for 20k+ objects */}
-      <VirtualizedObjectTable
+      {/* Content - List or Grid view */}
+      {viewMode === 'grid' && (
+        <GridObjectView
+          folders={displayData?.common_prefixes || []}
+          objects={displayData?.objects || []}
+          selectedKeys={selectedKeys}
+          isLoading={isLoading || isSearching}
+          onNavigate={handleNavigate}
+          onSelect={handleSelect}
+          onMenuOpen={handleMenuOpen}
+          onPreview={(key, size) => {
+            setStartInEditMode(false);
+            setPreviewKey(key);
+            setPreviewSize(size);
+            setPreviewOpen(true);
+          }}
+          onEndReached={loadMore}
+          thumbnails={thumbnails}
+          previews={previews}
+        />
+      )}
+      {viewMode === 'list' && <VirtualizedObjectTable
         folders={displayData?.common_prefixes || []}
         objects={displayData?.objects || []}
         selectedKeys={selectedKeys}
@@ -1241,7 +1311,10 @@ function BucketContent() {
             .then(() => displaySuccess(`Copied: ${s3Uri}`))
             .catch((err) => displayError('Failed to copy path', String(err)));
         }}
-      />
+      />}
+
+      {/* Console Panel */}
+      {consoleOpen && <ConsolePanel />}
 
       {/* Context Menu */}
       <Menu
