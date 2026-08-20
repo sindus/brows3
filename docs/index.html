@@ -135,7 +135,6 @@
     }
     .btn-secondary:hover { background: var(--surface); border-color: #555; text-decoration: none; color: var(--text); }
     .btn-download .icon { font-size: 1.1rem; }
-    .download-note { margin-top: 16px; font-size: 0.78rem; color: var(--muted); }
 
     /* ── Section container ─────────────────────── */
     section { padding: 80px 24px; max-width: 1080px; margin: 0 auto; }
@@ -236,6 +235,49 @@
     .dl-label { font-weight: 500; }
     .dl-ext { font-size: 0.75rem; color: var(--muted); font-family: monospace; }
 
+    /* ── Install / uninstall command blocks ────── */
+    .cmd-section { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
+    .cmd-group { margin-bottom: 14px; }
+    .cmd-group:last-child { margin-bottom: 0; }
+    .cmd-group h4 {
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    .cmd-row { display: flex; align-items: stretch; gap: 6px; margin-bottom: 6px; }
+    .cmd-row:last-child { margin-bottom: 0; }
+    .cmd-row pre {
+      flex: 1;
+      min-width: 0;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 9px 12px;
+      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+      font-size: 0.74rem;
+      line-height: 1.5;
+      color: var(--text);
+      overflow-x: auto;
+      white-space: pre;
+    }
+    .cmd-copy {
+      flex-shrink: 0;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--muted);
+      font-size: 0.72rem;
+      font-family: inherit;
+      padding: 0 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .cmd-copy:hover { border-color: var(--accent); color: var(--text); }
+    .cmd-copy.copied { color: var(--green); border-color: var(--green); }
+
     /* ── Footer ────────────────────────────────── */
     footer {
       border-top: 1px solid var(--border);
@@ -273,17 +315,10 @@
   <h1>Browse S3 like a<br/><em>file manager</em> — with thumbnails</h1>
   <p>A high-performance S3 desktop browser with grid view, progressive image thumbnails, bundled video support, and a local LRU cache. Built with Rust + Tauri.</p>
   <div class="download-grid">
-    <a href="https://github.com/sindus/brows3/releases/latest/download/Brows3_0.5.6_aarch64.dmg" class="btn-download btn-primary">
-      <span class="icon">🍎</span> macOS (Apple Silicon)
-    </a>
-    <a href="https://github.com/sindus/brows3/releases/latest/download/Brows3_0.5.6_x64-setup.exe" class="btn-download btn-secondary">
-      <span class="icon">🪟</span> Windows
-    </a>
-    <a href="https://github.com/sindus/brows3/releases/latest/download/Brows3_0.5.6_amd64.AppImage" class="btn-download btn-secondary">
-      <span class="icon">🐧</span> Linux
+    <a href="#download" class="btn-download btn-primary">
+      <span class="icon">⬇️</span> Download for Free
     </a>
   </div>
-  <p class="download-note">macOS Intel, .deb and .msi also available on the <a href="https://github.com/sindus/brows3/releases/latest">Releases page</a>.</p>
 </div>
 
 <hr class="divider" />
@@ -434,6 +469,27 @@
           </a>
         </li>
       </ul>
+
+      <div class="cmd-section">
+        <div class="cmd-group">
+          <h4>Install via Terminal</h4>
+          <div class="cmd-row">
+            <pre id="cmd-mac-install-arm">curl -fL -o /tmp/Brows3.dmg "https://github.com/sindus/brows3/releases/latest/download/Brows3_0.5.6_aarch64.dmg" &amp;&amp; hdiutil attach /tmp/Brows3.dmg -nobrowse -quiet &amp;&amp; cp -R "/Volumes/Brows3/Brows3.app" /Applications/ &amp;&amp; hdiutil detach "/Volumes/Brows3" -quiet &amp;&amp; rm /tmp/Brows3.dmg &amp;&amp; xattr -cr /Applications/Brows3.app</pre>
+            <button class="cmd-copy" onclick="copyCmd(this,'cmd-mac-install-arm')">Copy</button>
+          </div>
+          <div class="cmd-row">
+            <pre id="cmd-mac-install-intel">curl -fL -o /tmp/Brows3.dmg "https://github.com/sindus/brows3/releases/latest/download/Brows3_0.5.6_x64.dmg" &amp;&amp; hdiutil attach /tmp/Brows3.dmg -nobrowse -quiet &amp;&amp; cp -R "/Volumes/Brows3/Brows3.app" /Applications/ &amp;&amp; hdiutil detach "/Volumes/Brows3" -quiet &amp;&amp; rm /tmp/Brows3.dmg &amp;&amp; xattr -cr /Applications/Brows3.app</pre>
+            <button class="cmd-copy" onclick="copyCmd(this,'cmd-mac-install-intel')">Copy</button>
+          </div>
+        </div>
+        <div class="cmd-group">
+          <h4>Uninstall</h4>
+          <div class="cmd-row">
+            <pre id="cmd-mac-uninstall">rm -rf /Applications/Brows3.app ~/Library/Application\ Support/com.brows3 ~/Library/Caches/com.brows3</pre>
+            <button class="cmd-copy" onclick="copyCmd(this,'cmd-mac-uninstall')">Copy</button>
+          </div>
+        </div>
+      </div>
     </div>
     <div class="platform-card">
       <h3>🪟 Windows</h3>
@@ -451,6 +507,23 @@
           </a>
         </li>
       </ul>
+
+      <div class="cmd-section">
+        <div class="cmd-group">
+          <h4>Install via PowerShell</h4>
+          <div class="cmd-row">
+            <pre id="cmd-win-install">Invoke-WebRequest -Uri "https://github.com/sindus/brows3/releases/latest/download/Brows3_0.5.6_x64-setup.exe" -OutFile "$env:TEMP\Brows3-setup.exe"; Start-Process "$env:TEMP\Brows3-setup.exe" -ArgumentList "/S" -Wait</pre>
+            <button class="cmd-copy" onclick="copyCmd(this,'cmd-win-install')">Copy</button>
+          </div>
+        </div>
+        <div class="cmd-group">
+          <h4>Uninstall via PowerShell</h4>
+          <div class="cmd-row">
+            <pre id="cmd-win-uninstall">Start-Process "$env:LOCALAPPDATA\Brows3\uninstall.exe" -ArgumentList "/S" -Wait</pre>
+            <button class="cmd-copy" onclick="copyCmd(this,'cmd-win-uninstall')">Copy</button>
+          </div>
+        </div>
+      </div>
     </div>
     <div class="platform-card">
       <h3>🐧 Linux</h3>
@@ -468,6 +541,37 @@
           </a>
         </li>
       </ul>
+
+      <div class="cmd-section">
+        <div class="cmd-group">
+          <h4>Install .deb (Debian / Ubuntu)</h4>
+          <div class="cmd-row">
+            <pre id="cmd-linux-deb-install">curl -fL -o /tmp/brows3.deb "https://github.com/sindus/brows3/releases/latest/download/Brows3_0.5.6_amd64.deb" &amp;&amp; sudo apt install -y /tmp/brows3.deb</pre>
+            <button class="cmd-copy" onclick="copyCmd(this,'cmd-linux-deb-install')">Copy</button>
+          </div>
+        </div>
+        <div class="cmd-group">
+          <h4>Uninstall .deb</h4>
+          <div class="cmd-row">
+            <pre id="cmd-linux-deb-uninstall">sudo apt remove -y brows3</pre>
+            <button class="cmd-copy" onclick="copyCmd(this,'cmd-linux-deb-uninstall')">Copy</button>
+          </div>
+        </div>
+        <div class="cmd-group">
+          <h4>Install AppImage</h4>
+          <div class="cmd-row">
+            <pre id="cmd-linux-appimage-install">mkdir -p ~/.local/bin &amp;&amp; curl -fL -o ~/.local/bin/Brows3.AppImage "https://github.com/sindus/brows3/releases/latest/download/Brows3_0.5.6_amd64.AppImage" &amp;&amp; chmod +x ~/.local/bin/Brows3.AppImage</pre>
+            <button class="cmd-copy" onclick="copyCmd(this,'cmd-linux-appimage-install')">Copy</button>
+          </div>
+        </div>
+        <div class="cmd-group">
+          <h4>Uninstall AppImage</h4>
+          <div class="cmd-row">
+            <pre id="cmd-linux-appimage-uninstall">rm -f ~/.local/bin/Brows3.AppImage</pre>
+            <button class="cmd-copy" onclick="copyCmd(this,'cmd-linux-appimage-uninstall')">Copy</button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </section>
@@ -482,6 +586,34 @@
   </div>
   <p>Forked from <a href="https://github.com/rgcsekaraa/brows3">rgcsekaraa/brows3</a>. Original work by <a href="https://www.linkedin.com/in/rgcsekaraa/">rgcsekaraa</a>. MIT License.</p>
 </footer>
+
+<script>
+  function copyCmd(btn, id) {
+    var text = document.getElementById(id).textContent;
+    var reset = function () {
+      btn.textContent = 'Copy';
+      btn.classList.remove('copied');
+    };
+    var onCopied = function () {
+      btn.textContent = 'Copied!';
+      btn.classList.add('copied');
+      setTimeout(reset, 1500);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(onCopied);
+    } else {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      onCopied();
+    }
+  }
+</script>
 
 </body>
 </html>
