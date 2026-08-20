@@ -278,6 +278,32 @@
     .cmd-copy:hover { border-color: var(--accent); color: var(--text); }
     .cmd-copy.copied { color: var(--green); border-color: var(--green); }
 
+    /* ── Recommended install block ─────────────── */
+    .recommended-install {
+      background: var(--surface);
+      border: 1px solid var(--accent);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 28px;
+    }
+    .recommended-badge {
+      display: inline-block;
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: #fff;
+      background: var(--accent);
+      border-radius: 20px;
+      padding: 3px 12px;
+      margin-bottom: 14px;
+    }
+    .recommended-desc { color: var(--muted); font-size: 0.9rem; margin-bottom: 18px; }
+    .recommended-install .cmd-group { margin-bottom: 16px; }
+    .recommended-install .cmd-group:last-child { margin-bottom: 0; }
+    .recommended-install .cmd-row { align-items: center; }
+    .cmd-os { flex-shrink: 0; width: 92px; font-size: 0.78rem; color: var(--muted); }
+
     /* ── Footer ────────────────────────────────── */
     footer {
       border-top: 1px solid var(--border);
@@ -451,6 +477,41 @@
   <div class="section-label">Download</div>
   <h2 class="section-title">Available for all platforms.</h2>
   <p class="section-sub">Free, open-source, and MIT-licensed.</p>
+
+  <div class="recommended-install">
+    <div class="recommended-badge">Recommended</div>
+    <p class="recommended-desc">One command auto-detects your OS and CPU architecture (macOS: Apple Silicon/Intel · Linux: apt if available, else AppImage) and installs the right build.</p>
+
+    <div class="cmd-group">
+      <h4>Install</h4>
+      <div class="cmd-row">
+        <span class="cmd-os">macOS / Linux</span>
+        <pre id="cmd-rec-install-unix">curl -fsSL https://raw.githubusercontent.com/sindus/brows3/main/install/install.sh | sh</pre>
+        <button class="cmd-copy" onclick="copyCmd(this,'cmd-rec-install-unix')">Copy</button>
+      </div>
+      <div class="cmd-row">
+        <span class="cmd-os">Windows</span>
+        <pre id="cmd-rec-install-win">irm https://raw.githubusercontent.com/sindus/brows3/main/install/install.ps1 | iex</pre>
+        <button class="cmd-copy" onclick="copyCmd(this,'cmd-rec-install-win')">Copy</button>
+      </div>
+    </div>
+
+    <div class="cmd-group">
+      <h4>Uninstall</h4>
+      <div class="cmd-row">
+        <span class="cmd-os">macOS / Linux</span>
+        <pre id="cmd-rec-uninstall-unix">curl -fsSL https://raw.githubusercontent.com/sindus/brows3/main/install/uninstall.sh | sh</pre>
+        <button class="cmd-copy" onclick="copyCmd(this,'cmd-rec-uninstall-unix')">Copy</button>
+      </div>
+      <div class="cmd-row">
+        <span class="cmd-os">Windows</span>
+        <pre id="cmd-rec-uninstall-win">irm https://raw.githubusercontent.com/sindus/brows3/main/install/uninstall.ps1 | iex</pre>
+        <button class="cmd-copy" onclick="copyCmd(this,'cmd-rec-uninstall-win')">Copy</button>
+      </div>
+    </div>
+
+    <p class="recommended-desc" style="margin-bottom:0;">Prefer to see what a script does first? <a href="https://github.com/sindus/brows3/tree/main/install">Read the source</a> before running it.</p>
+  </div>
 
   <div class="platforms">
     <div class="platform-card">
