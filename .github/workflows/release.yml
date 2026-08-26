@@ -642,10 +642,11 @@ jobs:
           echo "Published fully validated release $TAG"
           
           # Update landing page download links to current version
-          OLD_VERSION=$(grep -oP '(?<=badge">Open Source · Free · v)[0-9]+\.[0-9]+\.[0-9]+' docs/index.html || echo "")
+          OLD_VERSION=$(grep -oP '(?<=badge">v)[0-9]+\.[0-9]+\.[0-9]+' docs/index.html || echo "")
           if [ -n "$OLD_VERSION" ] && [ "$OLD_VERSION" != "$VERSION" ]; then
             sed -i "s/Brows3_${OLD_VERSION}_/Brows3_${VERSION}_/g" docs/index.html
             sed -i "s/v${OLD_VERSION}/v${VERSION}/g" docs/index.html
+            sed -i "s/\"softwareVersion\": \"${OLD_VERSION}\"/\"softwareVersion\": \"${VERSION}\"/" docs/index.html
           fi
 
           # Commit and push

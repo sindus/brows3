@@ -3,11 +3,108 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Brows3 — S3 Browser with Thumbnails</title>
-  <meta name="description" content="Brows3 is a high-performance S3 desktop browser with grid view, progressive image thumbnails, video thumbnails, and a local LRU cache. Free and open-source." />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <title>Brows3: S3 Browser with Thumbnails for macOS, Windows &amp; Linux</title>
+  <meta name="description" content="Brows3 is a free, open-source S3 desktop browser with grid view, image &amp; video thumbnails, deep recursive search, and local caching. Works with AWS S3, MinIO, Cloudflare R2, Wasabi &amp; more." />
+  <meta name="application-name" content="Brows3" />
+  <link rel="author" href="https://github.com/sindus/brows3" />
+  <meta name="author" content="Brows3 Fork" />
+  <meta name="keywords" content="S3 browser, open source S3 client, S3 browser with thumbnails, S3 grid view, Amazon S3 browser, S3 desktop client, S3 file manager, object storage browser, MinIO browser, Cloudflare R2 browser, Wasabi browser, DigitalOcean Spaces client, S3 video thumbnails, S3 image thumbnails, Rust S3 client, Tauri S3 app" />
+  <meta name="creator" content="Brows3 Fork" />
+  <meta name="publisher" content="Brows3 Fork" />
+  <meta name="robots" content="index, follow" />
+  <meta name="googlebot" content="index, follow, max-video-preview:-1, max-image-preview:large, max-snippet:-1" />
+  <meta name="category" content="Developer Tools" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="format-detection" content="telephone=no" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="msapplication-TileColor" content="#0D1117" />
+  <meta name="theme-color" content="#0D1117" />
+  <link rel="canonical" href="https://sindus.github.io/brows3/" />
+
+  <meta property="og:title" content="Brows3: S3 Browser with Thumbnails for macOS, Windows &amp; Linux" />
+  <meta property="og:description" content="Brows3 is a free, open-source S3 desktop browser with grid view, image &amp; video thumbnails, deep recursive search, and local caching. Works with AWS S3, MinIO, Cloudflare R2, Wasabi &amp; more." />
+  <meta property="og:url" content="https://sindus.github.io/brows3/" />
+  <meta property="og:site_name" content="Brows3" />
+  <meta property="og:locale" content="en_US" />
+  <meta property="og:image" content="https://sindus.github.io/brows3/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="Brows3 — open-source S3 browser with thumbnails, for macOS, Windows, and Linux" />
+  <meta property="og:image:type" content="image/png" />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Brows3: S3 Browser with Thumbnails for macOS, Windows &amp; Linux" />
+  <meta name="twitter:description" content="Brows3 is a free, open-source S3 desktop browser with grid view, image &amp; video thumbnails, deep recursive search, and local caching." />
+  <meta name="twitter:image" content="https://sindus.github.io/brows3/og-image.png" />
+
+  <link rel="icon" href="favicon-32x32.png" type="image/png" sizes="32x32" />
+  <link rel="icon" href="favicon-16x16.png" type="image/png" sizes="16x16" />
+  <link rel="icon" href="icon-512.png" type="image/png" sizes="512x512" />
+  <link rel="shortcut icon" href="favicon-32x32.png" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "SoftwareApplication",
+        "@id": "https://sindus.github.io/brows3/#software",
+        "name": "Brows3",
+        "alternateName": ["Brows3 S3 Browser with Thumbnails", "Brows3 Fork"],
+        "applicationCategory": "DeveloperApplication",
+        "applicationSubCategory": "S3 and object storage browser",
+        "operatingSystem": ["Windows 10+", "macOS 10.15+", "Linux (AppImage / deb)"],
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD", "availability": "https://schema.org/InStock" },
+        "description": "Brows3 is a free, open-source S3 desktop browser with grid view, image and video thumbnails, deep recursive search, and a local LRU cache. Works with Amazon S3, MinIO, Cloudflare R2, Wasabi, DigitalOcean Spaces, and other S3-compatible storage.",
+        "url": "https://sindus.github.io/brows3/",
+        "downloadUrl": "https://github.com/sindus/brows3/releases/latest",
+        "installUrl": "https://sindus.github.io/brows3/#download",
+        "softwareVersion": "0.5.6",
+        "isBasedOn": "https://github.com/rgcsekaraa/brows3",
+        "featureList": [
+          "Grid and icon view with progressive image and video thumbnails",
+          "Bundled ffmpeg video thumbnail extraction, no separate install needed",
+          "Automatic content-type detection for extension-less images and videos",
+          "Local LRU thumbnail cache with a configurable size limit",
+          "Prefix-indexed, instant folder navigation",
+          "Deep recursive search across millions of objects",
+          "Monaco text and code editor",
+          "Rich previews for images, videos, and PDFs",
+          "Secure OS-keychain credential profiles",
+          "Bulk upload, download, and delete",
+          "Presigned URL generation",
+          "Works with AWS S3, MinIO, Cloudflare R2, Wasabi, DigitalOcean Spaces, and other S3-compatible storage",
+          "Signed automatic background updates"
+        ],
+        "screenshot": "https://sindus.github.io/brows3/screenshot.png",
+        "softwareRequirements": "Windows 10+, macOS 10.15+, or Linux",
+        "isAccessibleForFree": true,
+        "license": "https://opensource.org/licenses/MIT",
+        "author": { "@id": "https://sindus.github.io/brows3/#organization" },
+        "publisher": { "@id": "https://sindus.github.io/brows3/#organization" }
+      },
+      {
+        "@type": "WebSite",
+        "@id": "https://sindus.github.io/brows3/#website",
+        "url": "https://sindus.github.io/brows3/",
+        "name": "Brows3",
+        "description": "Free, open-source S3 desktop browser with grid view, image and video thumbnails, and local caching.",
+        "publisher": { "@id": "https://sindus.github.io/brows3/#organization" }
+      },
+      {
+        "@type": "Organization",
+        "@id": "https://sindus.github.io/brows3/#organization",
+        "name": "Brows3 Fork",
+        "url": "https://sindus.github.io/brows3/",
+        "logo": { "@type": "ImageObject", "url": "https://sindus.github.io/brows3/logo.png" },
+        "sameAs": ["https://github.com/sindus/brows3"]
+      }
+    ]
+  }
+  </script>
+
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -17,17 +114,16 @@
       --border: #30363d;
       --text: #e6edf3;
       --muted: #8b949e;
-      --accent: #2f81f7;
-      --accent-hover: #388bfd;
+      --accent: #f4941c;
+      --accent-hover: #d67e00;
+      --accent-contrast: #0d1117;
       --green: #3fb950;
-      --orange: #d29922;
-      --purple: #bc8cff;
     }
 
     html { scroll-behavior: smooth; }
 
     body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       background: var(--bg);
       color: var(--text);
       line-height: 1.6;
@@ -41,8 +137,7 @@
       position: sticky;
       top: 0;
       z-index: 100;
-      background: rgba(13, 17, 23, 0.85);
-      backdrop-filter: blur(12px);
+      background: var(--bg);
       border-bottom: 1px solid var(--border);
       padding: 0 24px;
       height: 60px;
@@ -51,25 +146,29 @@
       justify-content: space-between;
     }
     nav .logo {
-      font-size: 1.2rem;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 1.05rem;
       font-weight: 700;
       color: var(--text);
-      letter-spacing: -0.5px;
+      letter-spacing: -0.3px;
     }
-    nav .logo span { color: var(--accent); }
+    nav .logo img { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
     nav .nav-links { display: flex; gap: 24px; align-items: center; }
     nav .nav-links a { color: var(--muted); font-size: 0.9rem; }
     nav .nav-links a:hover { color: var(--text); text-decoration: none; }
     .btn-nav {
-      background: var(--accent);
-      color: #fff !important;
-      padding: 6px 16px;
+      background: transparent;
+      color: var(--accent) !important;
+      border: 1px solid rgba(244, 148, 28, 0.5);
+      padding: 5px 14px;
       border-radius: 6px;
-      font-weight: 500;
-      font-size: 0.85rem !important;
-      transition: background 0.15s;
+      font-weight: 600;
+      font-size: 0.82rem !important;
+      transition: all 0.15s;
     }
-    .btn-nav:hover { background: var(--accent-hover); text-decoration: none !important; }
+    .btn-nav:hover { border-color: var(--muted); background: var(--surface); text-decoration: none !important; }
 
     /* ── Hero ──────────────────────────────────── */
     .hero {
@@ -79,26 +178,61 @@
       margin: 0 auto;
     }
     .hero .badge {
-      display: inline-block;
+      display: block;
       font-size: 0.75rem;
       font-weight: 500;
-      color: var(--green);
-      background: rgba(63, 185, 80, 0.12);
-      border: 1px solid rgba(63, 185, 80, 0.3);
-      border-radius: 20px;
-      padding: 4px 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
       margin-bottom: 28px;
-      letter-spacing: 0.3px;
+    }
+    .hero .brand-lockup {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      margin-bottom: 12px;
+    }
+    .hero .brand-lockup img {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      object-fit: cover;
+      flex-shrink: 0;
     }
     .hero h1 {
-      font-size: clamp(2.4rem, 6vw, 4rem);
+      font-size: clamp(3rem, 9vw, 5.5rem);
       font-weight: 800;
-      letter-spacing: -1.5px;
-      line-height: 1.1;
-      margin-bottom: 20px;
+      letter-spacing: -2px;
+      line-height: 1;
       color: var(--text);
     }
-    .hero h1 em { color: var(--accent); font-style: normal; }
+    .hero .tagline {
+      font-size: clamp(1.15rem, 3vw, 1.5rem);
+      font-weight: 500;
+      color: var(--muted);
+      margin-bottom: 24px;
+    }
+    .hero .tagline strong { color: var(--text); font-weight: 600; }
+    .hero .chips {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 28px;
+    }
+    .hero .chip {
+      height: 26px;
+      padding: 0 12px;
+      display: inline-flex;
+      align-items: center;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 6px;
+      font-size: 0.78rem;
+      font-weight: 500;
+    }
     .hero p {
       font-size: 1.15rem;
       color: var(--muted);
@@ -124,16 +258,22 @@
     }
     .btn-primary {
       background: var(--accent);
-      color: #fff;
+      color: var(--accent-contrast);
       border: 1px solid var(--accent);
     }
-    .btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); text-decoration: none; color: #fff; }
+    .btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); text-decoration: none; color: var(--accent-contrast); }
     .btn-secondary {
       background: transparent;
       color: var(--text);
       border: 1px solid var(--border);
     }
     .btn-secondary:hover { background: var(--surface); border-color: #555; text-decoration: none; color: var(--text); }
+    .btn-github {
+      background: transparent;
+      color: var(--accent);
+      border: 1px solid var(--border);
+    }
+    .btn-github:hover { background: var(--surface); border-color: var(--muted); text-decoration: none; color: var(--accent); }
     .btn-download .icon { font-size: 1.1rem; }
 
     /* ── Section container ─────────────────────── */
@@ -182,9 +322,9 @@
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.8px;
-      color: var(--green);
-      background: rgba(63, 185, 80, 0.1);
-      border: 1px solid rgba(63, 185, 80, 0.25);
+      color: var(--text);
+      background: var(--bg);
+      border: 1px solid var(--border);
       border-radius: 4px;
       padding: 2px 7px;
       margin-bottom: 12px;
@@ -292,7 +432,7 @@
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.6px;
-      color: #fff;
+      color: var(--accent-contrast);
       background: var(--accent);
       border-radius: 20px;
       padding: 3px 12px;
@@ -326,7 +466,7 @@
 
 <!-- Nav -->
 <nav>
-  <span class="logo">Brows<span>3</span></span>
+  <span class="logo"><img src="logo.png" alt="Brows3 logo" width="28" height="28" />Brows3</span>
   <div class="nav-links">
     <a href="#new">What's New</a>
     <a href="#features">Features</a>
@@ -337,13 +477,22 @@
 
 <!-- Hero -->
 <div class="hero">
-  <div class="badge">Open Source · Free · v0.5.6</div>
-  <h1>Browse S3 like a<br/><em>file manager</em> — with thumbnails</h1>
+  <div class="badge">v0.5.6 · Free &amp; Open Source S3 Browser</div>
+  <div class="brand-lockup">
+    <img src="logo.png" alt="Brows3 logo" width="64" height="64" />
+    <h1>Brows3</h1>
+  </div>
+  <p class="tagline">Browse S3 like a <strong>file manager</strong> — with thumbnails</p>
+  <div class="chips">
+    <span class="chip">Free &amp; Open Source</span>
+    <span class="chip">Windows</span>
+    <span class="chip">macOS</span>
+    <span class="chip">Linux</span>
+  </div>
   <p>A high-performance S3 desktop browser with grid view, progressive image thumbnails, bundled video support, and a local LRU cache. Built with Rust + Tauri.</p>
   <div class="download-grid">
-    <a href="#download" class="btn-download btn-primary">
-      <span class="icon">⬇️</span> Download for Free
-    </a>
+    <a href="#download" class="btn-download btn-primary">Download</a>
+    <a href="https://github.com/sindus/brows3" class="btn-download btn-github">GitHub</a>
   </div>
 </div>
 
