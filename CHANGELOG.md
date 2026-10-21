@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.7] - 2026-10-21
+
+### Added
+- **Bucket Management**: Create buckets, edit bucket policies and delete empty buckets from All Buckets. Destructive actions require the bucket name.
+- **Bucket Root Favorites**: Favorite bucket roots from the sidebar or the bucket header.
+- **Image Viewer**: Zoom, pan, previous/next navigation and keyboard controls.
+- **Live Transfer Speeds**: Upload and download rates, including combined rates in the floating transfer panel.
+
+### Fixed
+- **Profile Isolation**: Clipboard, move, search and transfer operations stay bound to their original profile and bucket.
+- **Safer Transfers**: Downloads never overwrite existing files and reject unsafe paths; stalled transfers and multipart aborts are bounded, with provider error details shown in transfer lists.
+- **Large Buckets**: Stale sorted-listing cursors are rejected without crashing, and pagination stays available through empty pages.
+- **Compatible Providers**: Folder creation sends an explicit signed zero content length, and custom endpoint errors are preserved.
+- **Data Safety**: Concurrent text edits are detected, object attributes are preserved on save, large objects are copied with multipart copy, and incomplete deletions are reported.
+- **Credentials**: Legacy credentials are preserved during migration and credential files are written atomically with private permissions.
+- **UI**: Narrow-window navigation, keyboard object selection and clipboard shortcuts are restored, and ACL changes require an explicit confirmation.
+
+### Changed
+- Synced with upstream [rgcsekaraa/brows3](https://github.com/rgcsekaraa/brows3) through v0.2.46 while keeping this fork's grid view, thumbnails, video previews, AWS CLI console and release identity.
+- The native File and Window menus now use upstream's implementation; Quit is `Ctrl+Q` on Linux.
+- The desktop content security policy follows upstream's, which no longer allows `blob:` media sources.
+
 ## [0.5.6] - 2026-08-20
 
 ### Added
