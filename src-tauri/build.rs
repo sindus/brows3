@@ -53,6 +53,13 @@ fn prepare_crate_build_directory() {
         println!("cargo:rerun-if-changed={}", source.join(name).display());
         copy_directory(&source.join(name), &destination.join(name));
     }
+    // Sidecar binaries (e.g. this fork's ffmpeg) are resolved relative to the
+    // Tauri build directory, but a published crate does not ship them.
+    let binaries = source.join("binaries");
+    if binaries.is_dir() {
+        println!("cargo:rerun-if-changed={}", binaries.display());
+        copy_directory(&binaries, &destination.join("binaries"));
+    }
     env::set_current_dir(destination).expect("failed to select Tauri build directory");
 }
 
