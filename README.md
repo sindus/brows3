@@ -64,6 +64,8 @@ Traditional S3 tools often suffer from latency when navigating deep folder struc
 ## Feature Deep Dive
 
 ### File Management
+- **Bucket Management**: Create buckets, edit bucket policies and delete empty buckets from All Buckets. Policy changes and deletion require typing the bucket name. Availability depends on the provider and your credentials.
+- **Bucket Favorites**: Star a bucket from the sidebar or bucket header to open its root from Favorites. Favorites stay with their profile.
 - **Breadcrumb Navigation**: Path-based navigation for rapid traversal of complex hierarchies.
 - **Bulk Operations**: Upload, download, and delete multiple files or recursive folders at once.
 - **S3-Compatible Delete Fallback**: Folder deletion falls back to single-object deletes when a provider rejects multi-object delete requests.
@@ -201,7 +203,21 @@ Download the latest version from the [Releases](https://github.com/sindus/brows3
 | :--- | :--- |
 | **macOS** | `.dmg` (Apple Silicon/Intel), `.app.tar.gz` updater archives |
 | **Windows** | `.msi`, `.exe`, portable `.zip` |
-| **Linux** | `.deb`, `.AppImage` for x64 and ARM64 |
+| **Linux** | `.deb`, `.AppImage` for Intel/AMD 64-bit (x86_64/amd64) and ARM64 |
+| **Linux 32-bit (experimental)** | `.deb` for Intel/AMD x86 (i686, Debian package architecture `i386`) |
+
+### Choosing a Linux download
+
+`amd64`, `x86_64`, and `x64` refer to the same 64-bit x86 architecture. The
+`amd64` downloads work on compatible **Intel and AMD** systems, not just AMD.
+Choose `arm64` or `aarch64` only for a 64-bit ARM system.
+
+Version 0.2.46 introduces an experimental [32-bit Linux Debian installer](docs/LINUX_32_BIT.md).
+It passed CI build, backend tests, package installation, and startup checks, but
+real-device testing remains outstanding. It requires WebKitGTK 4.1 and manual
+updates; there is no 32-bit AppImage or Windows installer in this release.
+If you are unsure which download to choose, include the output of `uname -m`
+and `getconf LONG_BIT`, along with your Linux distribution, in a support request.
 
 Windows releases bundle the WebView2 runtime so fresh machines don't need a separate download.
 

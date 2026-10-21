@@ -4,7 +4,9 @@ pub mod error;
 pub mod s3;
 pub mod transfer;
 
-use commands::{buckets, objects, operations, profiles, thumbnails, transfer as transfer_cmd};
+use commands::{
+    bucket_management, buckets, objects, operations, profiles, thumbnails, transfer as transfer_cmd,
+};
 use s3::S3ClientManager;
 use serde::Serialize;
 use std::sync::Arc;
@@ -64,7 +66,7 @@ pub fn run() {
             // Add native menu on macOS to enable Copy/Paste/Cut/SelectAll/Undo/Redo shortcuts
             // Add native menu to enable standard shortcuts and window controls
             {
-                use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
+                use tauri::menu::{Menu, PredefinedMenuItem, Submenu};
 
                 let handle = app.handle();
 
@@ -87,15 +89,29 @@ pub fn run() {
                     ],
                 )?;
 
-                // On Linux/Windows, PredefinedMenuItem::quit/minimize/maximize/close_window
-                // don't render in GTK menus — use custom MenuItem with manual handlers instead.
-                #[cfg(not(target_os = "macos"))]
-                let quit_item = MenuItem::with_id(handle, "quit", "Quit", true, Some("Alt+F4"))?;
+                #[cfg(target_os = "windows")]
+                let file_menu = Submenu::with_items(
+                    handle,
+                    "File",
+                    true,
+                    &[&PredefinedMenuItem::quit(handle, None)?],
+                )?;
 
-                #[cfg(not(target_os = "macos"))]
-                let file_menu = Submenu::with_items(handle, "File", true, &[&quit_item])?;
+                #[cfg(target_os = "linux")]
+                let file_menu = Submenu::with_items(
+                    handle,
+                    "File",
+                    true,
+                    &[&tauri::menu::MenuItem::with_id(
+                        handle,
+                        "quit",
+                        "Quit",
+                        true,
+                        Some("Ctrl+Q"),
+                    )?],
+                )?;
 
-                // Edit Menu (Common) — PredefinedMenuItem works on all platforms for text ops
+                // Edit Menu (Common)
                 let edit_menu = Submenu::with_items(
                     handle,
                     "Edit",
@@ -111,8 +127,8 @@ pub fn run() {
                     ],
                 )?;
 
-                // Window Menu — predefined on macOS, custom items on Linux/Windows
-                #[cfg(target_os = "macos")]
+                // Window Menu (Common)
+                #[cfg(not(target_os = "linux"))]
                 let window_menu = Submenu::with_items(
                     handle,
                     "Window",
@@ -125,31 +141,34 @@ pub fn run() {
                     ],
                 )?;
 
-                #[cfg(not(target_os = "macos"))]
-                let minimize_item =
-                    MenuItem::with_id(handle, "minimize", "Minimize", true, None::<&str>)?;
-                #[cfg(not(target_os = "macos"))]
-                let maximize_item = MenuItem::with_id(
-                    handle,
-                    "maximize",
-                    "Maximize / Restore",
-                    true,
-                    None::<&str>,
-                )?;
-                #[cfg(not(target_os = "macos"))]
-                let close_item =
-                    MenuItem::with_id(handle, "close_window", "Close Window", true, None::<&str>)?;
-
-                #[cfg(not(target_os = "macos"))]
+                #[cfg(target_os = "linux")]
                 let window_menu = Submenu::with_items(
                     handle,
                     "Window",
                     true,
                     &[
-                        &minimize_item,
-                        &maximize_item,
+                        &tauri::menu::MenuItem::with_id(
+                            handle,
+                            "minimize",
+                            "Minimize",
+                            true,
+                            None::<&str>,
+                        )?,
+                        &tauri::menu::MenuItem::with_id(
+                            handle,
+                            "maximize",
+                            "Maximize or Restore",
+                            true,
+                            None::<&str>,
+                        )?,
                         &PredefinedMenuItem::separator(handle)?,
-                        &close_item,
+                        &tauri::menu::MenuItem::with_id(
+                            handle,
+                            "close",
+                            "Close Window",
+                            true,
+                            Some("Ctrl+W"),
+                        )?,
                     ],
                 )?;
 
@@ -161,28 +180,6 @@ pub fn run() {
 
                 app.set_menu(menu)?;
             }
-
-            // Handle custom menu item events (Linux/Windows)
-            #[cfg(not(target_os = "macos"))]
-            app.on_menu_event(|app_handle, event| match event.id().as_ref() {
-                "quit" => app_handle.exit(0),
-                "minimize" => {
-                    if let Some(w) = app_handle.get_webview_window("main") {
-                        let _ = w.minimize();
-                    }
-                }
-                "maximize" => {
-                    if let Some(w) = app_handle.get_webview_window("main") {
-                        let _ = w.maximize();
-                    }
-                }
-                "close_window" => {
-                    if let Some(w) = app_handle.get_webview_window("main") {
-                        let _ = w.close();
-                    }
-                }
-                _ => {}
-            });
 
             // Initialize logging for both debug and release builds
             app.handle().plugin(
@@ -235,7 +232,13 @@ pub fn run() {
             }
 
             // Initialize credentials manager synchronously before any profile commands can run.
-            credentials::init(app.handle())?;
+            let data_dir = credentials::init(app.handle())?;
+            let transfers = app.state::<Arc<TransferManager>>();
+            let journal = data_dir.join("transfers.json");
+            if let Err(error) = tauri::async_runtime::block_on(transfers.configure_journal(journal))
+            {
+                log::error!("Transfer recovery is unavailable: {error}");
+            }
 
             // Show the main window after initialization to prevent white flash
             if let Some(window) = app.get_webview_window("main") {
@@ -244,6 +247,32 @@ pub fn run() {
             }
 
             Ok(())
+        })
+        .on_menu_event(|_app, _event| {
+            #[cfg(target_os = "linux")]
+            {
+                if _event.id().as_ref() == "quit" {
+                    _app.exit(0);
+                    return;
+                }
+                if let Some(window) = _app.get_webview_window("main") {
+                    let result = match _event.id().as_ref() {
+                        "minimize" => window.minimize(),
+                        "maximize" => window.is_maximized().and_then(|maximized| {
+                            if maximized {
+                                window.unmaximize()
+                            } else {
+                                window.maximize()
+                            }
+                        }),
+                        "close" => window.close(),
+                        _ => Ok(()),
+                    };
+                    if let Err(error) = result {
+                        log::warn!("Window menu action failed: {}", error);
+                    }
+                }
+            }
         })
         .invoke_handler(tauri::generate_handler![
             // Profile management commands
@@ -259,6 +288,10 @@ pub fn run() {
             profiles::login_sso,
             profiles::check_aws_environment,
             // Bucket commands
+            bucket_management::create_bucket,
+            bucket_management::delete_bucket,
+            bucket_management::get_bucket_policy,
+            bucket_management::put_bucket_policy,
             buckets::list_buckets,
             buckets::list_buckets_with_regions,
             buckets::get_bucket_region,

@@ -229,6 +229,7 @@ const GridCard = memo(function GridCard({
         >
           <Box sx={{ p: 0.25 }}>
             <StyledCheckbox
+              aria-label={`Select ${item.key}`}
               checked={isSelected}
               onChange={(e) => { e.stopPropagation(); onSelect(item.key, e.target.checked); }}
             />
@@ -256,7 +257,6 @@ export const GridObjectView = memo(function GridObjectView({
   onSelect,
   onMenuOpen,
   onPreview,
-  onEndReached,
   thumbnails,
   previews,
 }: Props) {

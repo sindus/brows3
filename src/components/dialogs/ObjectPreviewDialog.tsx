@@ -17,6 +17,7 @@ import { copyToClipboard, objectApi } from '@/lib/tauri';
 import Editor, { OnMount } from '@monaco-editor/react';
 import { toast } from '@/store/toastStore';
 import { BaseDialog } from '../common/BaseDialog';
+import ImagePreviewViewer from './ImagePreviewViewer';
 import { getEditorLanguage, getObjectExtension, getObjectKind, getObjectName } from '@/lib/objectCapabilities';
 import { useSettingsStore } from '@/store/settingsStore';
 
@@ -29,6 +30,8 @@ interface ObjectPreviewDialogProps {
   objectSize?: number;
   onSave?: () => void;
   startInEditMode?: boolean;
+  imageSequence?: string[];
+  onNavigateImage?: (key: string) => void;
 }
 
 export default function ObjectPreviewDialog({
@@ -40,6 +43,8 @@ export default function ObjectPreviewDialog({
   objectSize,
   onSave,
   startInEditMode = false,
+  imageSequence = [],
+  onNavigateImage,
 }: ObjectPreviewDialogProps) {
   const theme = useTheme();
   const maxTextPreviewSizeMb = useSettingsStore((state) => state.maxTextPreviewSizeMb);
@@ -51,7 +56,9 @@ export default function ObjectPreviewDialog({
   const [presignedUrl, setPresignedUrl] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(startInEditMode);
   const [isSaving, setIsSaving] = useState(false);
-  const [isImageRendering, setIsImageRendering] = useState(false);
+  const [textIdentity, setTextIdentity] = useState<{ etag: string | null; profileId: string } | null>(null);
+  const [reloadAttempt, setReloadAttempt] = useState(0);
+  const [loadedObjectKey, setLoadedObjectKey] = useState('');
   const [isPdfLoading, setIsPdfLoading] = useState(false);
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
   const initialVersionIdRef = useRef<number>(0);
@@ -82,9 +89,11 @@ export default function ObjectPreviewDialog({
     let cancelled = false;
 
     const loadContent = async () => {
+      setLoadedObjectKey(objectKey);
       setIsLoading(true);
       setError(null);
       setContent('');
+      setTextIdentity(null);
       setEditedContent('');
       setContentType(null);
       setPresignedUrl(null);
@@ -134,7 +143,6 @@ export default function ObjectPreviewDialog({
 
         if (resolvedKind === 'image' || resolvedKind === 'audio' || resolvedKind === 'video' || resolvedKind === 'pdf') {
           // Get presigned URL for preview
-          if (resolvedKind === 'image') setIsImageRendering(true);
           if (resolvedKind === 'pdf') {
              setIsPdfLoading(true);
              pdfLoadingTimeoutRef.current = setTimeout(() => {
@@ -158,8 +166,9 @@ export default function ObjectPreviewDialog({
           
           // Even if empty, it's valid content
           if (!cancelled && requestId === loadRequestIdRef.current) {
-            setContent(textContent || '');
-            setEditedContent(textContent || '');
+            setContent(textContent.content);
+            setEditedContent(textContent.content);
+            setTextIdentity({ etag: textContent.e_tag, profileId: textContent.profile_id });
           }
         } else {
           setError('This object is not previewable in the app. Please download it to inspect locally.');
@@ -194,16 +203,19 @@ export default function ObjectPreviewDialog({
         pdfLoadingTimeoutRef.current = null;
       }
     };
-  }, [open, objectKey, bucketName, bucketRegion, objectSize, startInEditMode, filename, maxTextPreviewSizeMb]);
+  }, [open, objectKey, bucketName, bucketRegion, objectSize, startInEditMode, filename, maxTextPreviewSizeMb, reloadAttempt]);
 
   const handleSave = async () => {
-    if (!isEditing) return;
+    if (!isEditing || isSaving || !textIdentity?.etag) return;
+    const requestId = loadRequestIdRef.current;
 
     setIsSaving(true);
     setError(null);
 
     try {
-      await objectApi.putObjectContent(bucketName, bucketRegion, objectKey, editedContent, contentType);
+      const etag = await objectApi.putObjectContent(bucketName, bucketRegion, objectKey, editedContent, textIdentity.etag, textIdentity.profileId);
+      if (requestId !== loadRequestIdRef.current) return;
+      setTextIdentity({ ...textIdentity, etag });
       setContent(editedContent);
       // Reset version tracking - current state is now the new baseline
       if (editorRef.current) {
@@ -217,7 +229,9 @@ export default function ObjectPreviewDialog({
       toast.success('File Saved', `${filename} saved successfully`);
       onSave?.();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save');
+      if (requestId === loadRequestIdRef.current) {
+        setError(err instanceof Error ? err.message : String(err));
+      }
     } finally {
       setIsSaving(false);
     }
@@ -255,6 +269,18 @@ export default function ObjectPreviewDialog({
     setIsEditing(false);
     onClose();
   };
+
+  if (isImageFile) {
+    const index = imageSequence.indexOf(objectKey);
+    return <ImagePreviewViewer
+      key={JSON.stringify([bucketName, bucketRegion])}
+      open={open} name={filename} url={isLoading || loadedObjectKey !== objectKey ? null : presignedUrl} error={loadedObjectKey === objectKey ? error : null} attempt={reloadAttempt}
+      index={index} total={index >= 0 ? imageSequence.length : 0}
+      onPrevious={onNavigateImage && index > 0 ? () => onNavigateImage(imageSequence[index - 1]) : undefined}
+      onNext={onNavigateImage && index >= 0 && index < imageSequence.length - 1 ? () => onNavigateImage(imageSequence[index + 1]) : undefined}
+      onClose={handleClose} onRetry={() => setReloadAttempt(attempt => attempt + 1)}
+    />;
+  }
 
   return (
     <BaseDialog 
@@ -320,6 +346,7 @@ export default function ObjectPreviewDialog({
               ) : (
                 <>
                   <Button 
+                    disabled={isSaving}
                     onClick={() => { setIsEditing(false); setEditedContent(content); }} 
                     sx={{ color: theme.palette.text.secondary, fontWeight: 600 }}
                   >
@@ -329,7 +356,7 @@ export default function ObjectPreviewDialog({
                     startIcon={<SaveIcon />} 
                     onClick={handleSave} 
                     variant="contained" 
-                    disabled={isSaving || !hasChanges}
+                    disabled={isSaving || !hasChanges || !textIdentity?.etag}
                     sx={{
                       // Visual feedback: dim when no changes
                       opacity: !hasChanges ? 0.6 : 1,
@@ -358,37 +385,12 @@ export default function ObjectPreviewDialog({
           </Box>
         )}
 
-        {!isLoading && !error && (
-          <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            {/* Image Preview */}
-            {isImageFile && presignedUrl && (
-              <Box sx={{ 
-                flex: 1, 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center', 
-                p: 2, 
-                position: 'relative',
-                bgcolor: alpha(theme.palette.background.paper, 0.5)
-              }}>
-                {isImageRendering && <CircularProgress size={32} sx={{ position: 'absolute' }} />}
-                {/* eslint-disable-next-line @next/next/no-img-element -- presigned S3 URLs are dynamic and not known to Next image config. */}
-                <img 
-                  src={presignedUrl} 
-                  alt={filename}
-                  onLoad={() => setIsImageRendering(false)}
-                  style={{ 
-                    maxWidth: '100%', 
-                    maxHeight: '100%', 
-                    objectFit: 'contain',
-                    borderRadius: 4,
-                    opacity: isImageRendering ? 0 : 1,
-                    transition: 'opacity 0.3s'
-                  }}
-                />
-              </Box>
-            )}
+        {!isLoading && isText && textIdentity && !textIdentity.etag && (
+          <Alert severity="warning">This provider did not return an ETag. Download or copy the text to edit it safely.</Alert>
+        )}
 
+        {!isLoading && (!error || textIdentity) && (
+          <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             {/* Video Preview */}
             {isVideoFile && presignedUrl && (
               <Box sx={{ flex: 1, bgcolor: 'black', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -440,7 +442,7 @@ export default function ObjectPreviewDialog({
                     defaultLanguage={getEditorLanguage(filename, contentType)}
                     value={isEditing ? editedContent : content}
                     options={{ 
-                        readOnly: !isEditing, 
+                        readOnly: !isEditing || isSaving,
                         minimap: { enabled: true },
                         scrollBeyondLastLine: false,
                         fontSize: 14,

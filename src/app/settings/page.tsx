@@ -23,7 +23,6 @@ import {
 } from '@mui/material';
 import {
   PhotoLibrary as ThumbnailIcon,
-  Cached as CacheIcon,
   Update as UpdateIcon,
   Folder as FolderIcon,
   DeleteSweep as ClearIcon,
@@ -42,7 +41,7 @@ import { useAppStore } from '@/store/appStore';
 import { useMonitorStore } from '@/store/monitorStore';
 import { invalidateBucketCache } from '@/hooks/useBuckets';
 import { toast } from '@/store/toastStore';
-import { copyToClipboard, invalidateCache, isTauri, logApi, thumbnailApi, type CacheInfo, type LogFileInfo } from '@/lib/tauri';
+import { bucketApi, copyToClipboard, invalidateCache, isTauri, logApi, thumbnailApi, type CacheInfo, type LogFileInfo } from '@/lib/tauri';
 import { formatSize } from '@/lib/utils';
 
 export default function SettingsPage() {
@@ -105,11 +104,16 @@ export default function SettingsPage() {
     setPendingPreviewLimit(maxTextPreviewSizeMb);
   }, [maxTextPreviewSizeMb]);
 
-  const handleClearCache = () => {
-    invalidateBucketCache();
-    clearDiscoveredRegions();
-    invalidateCache();
-    toast.success('Caches cleared', 'Bucket lists, discovered regions, and object views were reset.');
+  const handleClearCache = async () => {
+    try {
+      if (isTauri()) await bucketApi.refreshS3Client();
+      invalidateBucketCache();
+      clearDiscoveredRegions();
+      invalidateCache();
+      toast.success('Caches cleared', 'Bucket lists, discovered regions, and object views were reset.');
+    } catch (error) {
+      toast.error('Could not clear caches', String(error));
+    }
   };
 
   const handleCheckUpdate = async () => {

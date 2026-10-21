@@ -7,6 +7,16 @@ license = "MIT"
 homepage = "https://github.com/rgcsekaraa/brows3"
 repository = "https://github.com/rgcsekaraa/brows3"
 edition = "2021"
+# Publish only the self-contained package produced by scripts/prepare-crate.js.
+# The development manifest points at a frontend outside this directory.
+publish = false
+
+[package.metadata.binstall]
+pkg-url = "{ repo }/releases/download/app-v{ version }/brows3-v{ version }-{ target }.tar.gz"
+bin-dir = "{ bin }{ binary-ext }"
+pkg-fmt = "tgz"
+# Use our release artifacts, or fall back to building the verified source crate.
+disabled-strategies = ["quick-install"]
 
 [lib]
 name = "brows3_lib"
@@ -34,7 +44,8 @@ tokio = { version = "1", features = ["full"] }
 aws-config = { version = "1", default-features = false, features = ["behavior-version-latest", "credentials-process", "rt-tokio", "rustls", "sso"] }
 aws-sdk-s3 = "1"
 aws-credential-types = "1"
-aws-smithy-types = { version = "1", features = ["rt-tokio"] }
+aws-smithy-types = { version = "1", features = ["rt-tokio", "http-body-1-x"] }
+http-body = "1"
 
 # Secure credential storage. Linux defaults to the persistent freedesktop
 # Secret Service; keyutils remains available only to migrate legacy entries.
@@ -62,10 +73,22 @@ sha2 = "0.10"
 mime = "0.3"
 mime_guess = "2"
 tauri-plugin-clipboard-manager = "2.3.2"
+cap-std = "4.0.3"
+tempfile = "3.24"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["test-util"] }
 
 [features]
+crate-distribution = []
 # This feature is used for production builds or when a dev server is not specified
 custom-protocol = ["tauri/custom-protocol"]
+
+[target.'cfg(any(target_os = "linux", target_os = "macos"))'.dependencies]
+rustix = { version = "1.1", features = ["fs"] }
+
+[target.'cfg(windows)'.dependencies]
+winx = "0.36.4"
 
 [profile.release]
 panic = "abort"

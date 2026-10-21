@@ -42,9 +42,10 @@ fn build_s3_config(sdk_config: &aws_config::SdkConfig, profile: &Profile) -> aws
     {
         builder = builder
             .force_path_style(true)
-            .request_checksum_calculation(RequestChecksumCalculation::WhenRequired)
             .response_checksum_validation(ResponseChecksumValidation::WhenRequired);
     }
+
+    builder = builder.request_checksum_calculation(RequestChecksumCalculation::WhenRequired);
 
     builder.build()
 }
@@ -137,6 +138,7 @@ pub struct S3Object {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct FolderContent {
+    pub generation: String,
     pub objects: Vec<S3Object>,
     pub common_prefixes: Vec<String>,
 }
@@ -147,7 +149,7 @@ pub struct S3ClientManager {
     sorted_folder_cache: HashMap<SortedFolderCacheKey, FolderContent>,
     sorted_folder_cache_order: VecDeque<SortedFolderCacheKey>,
     sorted_folder_cache_items: usize,
-    bucket_regions: HashMap<String, String>, // bucket_name -> region
+    bucket_regions: HashMap<(String, String), String>, // profile revision + bucket
 }
 
 impl S3ClientManager {
@@ -176,7 +178,7 @@ impl S3ClientManager {
         profile: &Profile,
         region: &str,
     ) -> Result<&Client> {
-        let key = (profile.id.clone(), region.to_string());
+        let key = (profile.cache_identity(), region.to_string());
 
         if !self.clients.contains_key(&key) {
             let client = self.build_client(profile, Some(region.to_string())).await?;
@@ -205,23 +207,26 @@ impl S3ClientManager {
     }
 
     /// Get cached region for a bucket
-    pub fn get_bucket_region(&self, bucket_name: &str) -> Option<String> {
-        self.bucket_regions.get(bucket_name).cloned()
+    pub fn get_bucket_region(&self, profile: &Profile, bucket_name: &str) -> Option<String> {
+        self.bucket_regions
+            .get(&(profile.cache_identity(), bucket_name.to_string()))
+            .cloned()
     }
 
     /// Cache the region for a bucket
-    pub fn set_bucket_region(&mut self, bucket_name: &str, region: String) {
-        self.bucket_regions.insert(bucket_name.to_string(), region);
+    pub fn set_bucket_region(&mut self, profile: &Profile, bucket_name: &str, region: String) {
+        self.bucket_regions
+            .insert((profile.cache_identity(), bucket_name.to_string()), region);
     }
 
     /// Cache the same region for a set of buckets.
-    pub fn set_bucket_regions<I>(&mut self, bucket_names: I, region: &str)
+    pub fn set_bucket_regions<I>(&mut self, profile: &Profile, bucket_names: I, region: &str)
     where
         I: IntoIterator,
         I::Item: AsRef<str>,
     {
         for bucket_name in bucket_names {
-            self.set_bucket_region(bucket_name.as_ref(), region.to_string());
+            self.set_bucket_region(profile, bucket_name.as_ref(), region.to_string());
         }
     }
 
@@ -302,12 +307,15 @@ impl S3ClientManager {
     /// Remove cached sorted results for a specific profile and bucket.
     pub fn remove_bucket_cache(&mut self, profile_id: &str, bucket_name: &str) {
         let pid = profile_id.to_string();
+        let revision_prefix = format!("{profile_id}:");
         let bname = bucket_name.to_string();
 
-        self.sorted_folder_cache
-            .retain(|(p, b, _, _, _), _| p != &pid || b != &bname);
-        self.sorted_folder_cache_order
-            .retain(|(p, b, _, _, _)| p != &pid || b != &bname);
+        self.sorted_folder_cache.retain(|(p, b, _, _, _), _| {
+            (p != &pid && !p.starts_with(&revision_prefix)) || b != &bname
+        });
+        self.sorted_folder_cache_order.retain(|(p, b, _, _, _)| {
+            (p != &pid && !p.starts_with(&revision_prefix)) || b != &bname
+        });
         self.sorted_folder_cache_items = self
             .sorted_folder_cache
             .values()
@@ -437,6 +445,26 @@ mod tests {
     use std::time::Duration;
 
     #[test]
+    fn bucket_regions_are_isolated_by_profile_and_revision() {
+        let mut manager = S3ClientManager::new();
+        let a = Profile::new("A".into(), CredentialType::Environment, None);
+        let b = Profile::new("B".into(), CredentialType::Environment, None);
+        manager.set_bucket_region(&a, "shared", "region-a".into());
+        manager.set_bucket_region(&b, "shared", "region-b".into());
+        assert_eq!(
+            manager.get_bucket_region(&a, "shared").as_deref(),
+            Some("region-a")
+        );
+        assert_eq!(
+            manager.get_bucket_region(&b, "shared").as_deref(),
+            Some("region-b")
+        );
+        let mut edited = a.clone();
+        edited.updated_at = a.updated_at.map(|date| date + chrono::Duration::seconds(1));
+        assert!(manager.get_bucket_region(&edited, "shared").is_none());
+    }
+
+    #[test]
     fn normalize_endpoint_url_preserves_existing_scheme() {
         assert_eq!(
             normalize_endpoint_url("https://us-east-1.linodeobjects.com"),
@@ -509,6 +537,27 @@ mod tests {
     }
 
     #[test]
+    fn aws_upload_compatibility_preserves_download_checksum_validation() {
+        let config = SdkConfig::builder()
+            .behavior_version(aws_config::BehaviorVersion::latest())
+            .region(Region::new("us-east-1"))
+            .response_checksum_validation(
+                aws_sdk_s3::config::ResponseChecksumValidation::WhenSupported,
+            )
+            .build();
+        let profile = Profile::new("AWS".into(), CredentialType::Environment, None);
+        let result = build_s3_config(&config, &profile);
+        assert_eq!(
+            result.request_checksum_calculation(),
+            Some(&aws_sdk_s3::config::RequestChecksumCalculation::WhenRequired)
+        );
+        assert_eq!(
+            result.response_checksum_validation(),
+            Some(&aws_sdk_s3::config::ResponseChecksumValidation::WhenSupported)
+        );
+    }
+
+    #[test]
     fn sorted_folder_cache_evicts_the_oldest_entry_at_its_limit() {
         let mut manager = S3ClientManager::new();
 
@@ -527,6 +576,7 @@ mod tests {
                         storage_class: None,
                     }],
                     common_prefixes: Vec::new(),
+                    generation: index.to_string(),
                 },
             );
         }

@@ -252,7 +252,7 @@ pub async fn start_thumbnail_generation(
         s3_state
             .try_read()
             .ok()
-            .and_then(|s| s.get_bucket_region(&bucket))
+            .and_then(|s| s.get_bucket_region(&profile, &bucket))
     });
     let _ = region; // used indirectly via client config
 

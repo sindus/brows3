@@ -3,10 +3,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { S3Object, thumbnailApi } from '@/lib/tauri';
 
-const IMAGE_EXTENSIONS = new Set([
-  'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'tif', 'svg', 'ico',
-]);
-
 // Extensions we're certain are NOT visual — skip them without downloading
 const NON_VISUAL_EXTENSIONS = new Set([
   // Audio only

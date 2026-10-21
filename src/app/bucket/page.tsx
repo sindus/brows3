@@ -65,7 +65,7 @@ import { useProfileStore } from '@/store/profileStore';
 import PropertiesDialog from '@/components/dialogs/PropertiesDialog';
 import PermissionsDialog from '@/components/dialogs/PermissionsDialog';
 import ObjectPreviewDialog from '@/components/dialogs/ObjectPreviewDialog';
-import { canObjectBeEdited, getObjectName } from '@/lib/objectCapabilities';
+import { canObjectBeEdited, getObjectKind, getObjectName } from '@/lib/objectCapabilities';
 import PresignedUrlDialog from '@/components/dialogs/PresignedUrlDialog';
 import { VirtualizedObjectTable } from '@/components/common/VirtualizedObjectTable';
 import { GridObjectView } from '@/components/common/GridObjectView';
@@ -74,7 +74,6 @@ import { useAppStore } from '@/store/appStore';
 import { useHistoryStore } from '@/store/historyStore';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { StyledCheckbox } from '@/components/common/StyledCheckbox';
-import { formatSize } from '@/lib/utils';
 
 // Concurrent paste batch size
 const PASTE_CONCURRENCY = 5;
@@ -98,7 +97,7 @@ function BucketContent() {
   const [sortField, setSortField] = useState<'name' | 'size' | 'date' | 'class'>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
-  const { data, isLoading, error: initialError, stats, refresh, loadMore, isLoadingMore, hasMore } = useObjects(bucketName || '', bucketRegion, prefix, sortField, sortDirection);
+  const { data, isLoading, error: initialError, refresh, loadMore, hasMore, isLoadingMore } = useObjects(bucketName || '', bucketRegion, prefix, sortField, sortDirection);
   const { viewMode, setViewMode } = useAppStore();
   const { thumbnails, previews } = useThumbnails(
     bucketName || '',
@@ -108,6 +107,7 @@ function BucketContent() {
   );
   const addJob = useTransferStore(state => state.addJob);
   const activeProfileId = useProfileStore(state => state.activeProfileId);
+  const viewKey = JSON.stringify([activeProfileId, bucketName, bucketRegion, prefix]);
   const consoleOpen = useConsoleStore((s) => s.isOpen);
   const toggleConsole = useConsoleStore((s) => s.toggle);
 
@@ -115,7 +115,7 @@ function BucketContent() {
   const [searchQuery, setSearchQuery] = useState('');
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const [isDeepSearch, setIsDeepSearch] = useState(false);
-  const [searchResults, setSearchResults] = useState<S3Object[] | null>(null);
+  const [searchResults, setSearchResults] = useState<{ viewKey: string; objects: S3Object[] } | null>(null);
   const [isSearching, setIsSearching] = useState(false);
 
   // Error handling effect
@@ -221,7 +221,7 @@ function BucketContent() {
 
             // CRITICAL FIX: Only update if this is still the latest search request
             if (currentSequence === searchSequenceRef.current) {
-                setSearchResults(result.objects);
+                setSearchResults({ viewKey, objects: result.objects });
 
                 if (result.is_truncated) {
                     toast.info(
@@ -262,10 +262,10 @@ function BucketContent() {
      const normalizedQuery = deferredSearchQuery.trim().toLowerCase();
 
      // 1. Deep Search Results (Server-side)
-     if (isDeepSearch && searchResults) {
+     if (isDeepSearch && searchResults?.viewKey === viewKey) {
          return {
              common_prefixes: [],
-             objects: searchResults,
+             objects: searchResults.objects,
              next_continuation_token: null,
              is_truncated: false,
              prefix: prefix,
@@ -283,11 +283,11 @@ function BucketContent() {
 
      // 3. Default View
      return data;
-  }, [data, searchResults, deferredSearchQuery, prefix, isDeepSearch]);
+  }, [data, searchResults, deferredSearchQuery, prefix, isDeepSearch, viewKey]);
 
   const currentObjectSizeMap = useMemo(
-    () => new Map((data?.objects || []).map((obj) => [obj.key, obj.size])),
-    [data]
+    () => new Map([...(data?.objects || []), ...(displayData?.objects || [])].map((obj) => [obj.key, obj.size])),
+    [data, displayData]
   );
   const currentFolderKeys = useMemo(
     () => new Set(data?.common_prefixes || []),
@@ -319,6 +319,18 @@ function BucketContent() {
   const [previewKey, setPreviewKey] = useState<string | null>(null);
   const [previewSize, setPreviewSize] = useState<number | undefined>(undefined);
   const [startInEditMode, setStartInEditMode] = useState(false);
+
+  const imageSequence = useMemo(() => {
+    const images = (displayData?.objects || []).filter(object => getObjectKind(object.key) === 'image');
+    return images.sort((a, b) => {
+      let comparison = 0;
+      if (sortField === 'name') comparison = getObjectName(a.key).localeCompare(getObjectName(b.key));
+      else if (sortField === 'size') comparison = a.size - b.size;
+      else if (sortField === 'date') comparison = (a.last_modified ? new Date(a.last_modified).getTime() : 0) - (b.last_modified ? new Date(b.last_modified).getTime() : 0);
+      else comparison = (a.storage_class || 'STANDARD').localeCompare(b.storage_class || 'STANDARD');
+      return sortDirection === 'asc' ? comparison : -comparison;
+    }).map(object => object.key);
+  }, [displayData, sortField, sortDirection]);
 
   // Presigned URL Dialog State
   const [presignedUrlOpen, setPresignedUrlOpen] = useState(false);
@@ -371,6 +383,26 @@ function BucketContent() {
 
   const { addRecent, addFavorite, removeFavorite, isFavorite } = useHistoryStore();
 
+  const bucketIsFavorite = !!bucketName && !!activeProfileId && isFavorite('', bucketName, activeProfileId);
+
+  const handleToggleBucketFavorite = () => {
+    if (!bucketName || !activeProfileId) return;
+    if (isFavorite('', bucketName, activeProfileId)) {
+      removeFavorite('', bucketName, activeProfileId);
+      displaySuccess('Removed bucket from Favorites');
+      return;
+    }
+    addFavorite({
+      key: '',
+      name: bucketName,
+      bucket: bucketName,
+      region: bucketRegion,
+      profileId: activeProfileId,
+      isFolder: true,
+    });
+    displaySuccess('Added bucket root to Favorites');
+  };
+
   const handleNavigate = (newPrefix: string) => {
     // Track in recent history
     if (newPrefix && bucketName) {
@@ -412,7 +444,12 @@ function BucketContent() {
   useEffect(() => {
     setSelectedKeys(new Set());
     setSelectedObject(null);
-  }, [prefix, bucketName]);
+    setPreviewOpen(false);
+    setPropertiesOpen(false);
+    setPermissionsOpen(false);
+    setPresignedUrlOpen(false);
+    setDeleteConfirmOpen(false);
+  }, [viewKey]);
 
   // Selection Handlers - memoized to prevent re-renders
   const handleSelect = useCallback((key: string, checked: boolean) => {
@@ -458,6 +495,7 @@ function BucketContent() {
      const keys = selectedKeysRef.current;
      if (keys.size === 0) return;
      const items = Array.from(keys).map(key => ({
+       profileId: activeProfileId || '',
        bucket: bucketName || '',
        region: bucketRegion,
        key,
@@ -466,12 +504,13 @@ function BucketContent() {
      copy(items);
      clearSelection();
      displaySuccess(`Copied ${items.length} items`);
-  }, [bucketName, bucketRegion, copy, clearSelection, displaySuccess]);
+  }, [activeProfileId, bucketName, bucketRegion, copy, clearSelection, displaySuccess]);
 
   const handleCut = useCallback(() => {
     const keys = selectedKeysRef.current;
     if (keys.size === 0) return;
     const items = Array.from(keys).map(key => ({
+      profileId: activeProfileId || '',
       bucket: bucketName || '',
       region: bucketRegion,
       key,
@@ -480,10 +519,15 @@ function BucketContent() {
     cut(items);
     clearSelection();
     displaySuccess(`Cut ${items.length} items to clipboard`);
-  }, [bucketName, bucketRegion, cut, clearSelection, displaySuccess]);
+  }, [activeProfileId, bucketName, bucketRegion, cut, clearSelection, displaySuccess]);
 
   const handlePaste = async () => {
     if (!bucketName || clipboardItems.length === 0) return;
+    if (!activeProfileId || clipboardItems.some(item => item.profileId !== activeProfileId)) {
+      clearClipboard();
+      displayError('The clipboard belongs to another profile. Copy the items again.');
+      return;
+    }
     let successCount = 0;
 
     // Process paste operations in parallel batches for better performance
@@ -506,9 +550,9 @@ function BucketContent() {
           }
 
           if (clipboardMode === 'copy') {
-            await operationsApi.copyObject(item.bucket, item.region, item.key, bucketName, bucketRegion, destKey);
+            await operationsApi.copyObject(item.bucket, item.region, item.key, bucketName, bucketRegion, destKey, item.profileId);
           } else {
-            await operationsApi.moveObject(item.bucket, item.region, item.key, bucketName, bucketRegion, destKey);
+            await operationsApi.moveObject(item.bucket, item.region, item.key, bucketName, bucketRegion, destKey, item.profileId);
           }
           successCount++;
         }));
@@ -538,15 +582,15 @@ function BucketContent() {
   // Keyboard Shortcuts - use refs to always get latest function
   useEffect(() => {
     searchSequenceRef.current += 1;
-    if (!searchQuery.trim()) {
-      setSearchResults(null);
-      setIsSearching(false);
-    }
-  }, [searchQuery]);
+    setSearchResults(null);
+    setIsSearching(false);
+    return () => { searchSequenceRef.current += 1; };
+  }, [searchQuery, viewKey]);
 
   useEffect(() => {
     const isEditableTarget = (target: EventTarget | null) => {
       if (!(target instanceof HTMLElement)) return false;
+      if (target instanceof HTMLInputElement && target.type === 'checkbox') return false;
       const tagName = target.tagName;
       return target.isContentEditable || tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT';
     };
@@ -600,7 +644,7 @@ function BucketContent() {
            const filename = file.split(/[/\\]/).pop() || 'uploaded-file';
            const key = prefix + filename;
 
-           const jobId = await transferApi.queueUpload(bucketName, bucketRegion, key, file, 0);
+           const jobId = await transferApi.queueUpload(bucketName, bucketRegion, key, file, 0, activeProfileId);
 
            addJob({
               id: jobId,
@@ -642,7 +686,7 @@ function BucketContent() {
          let totalFiles = 0;
 
          for (const folder of folders) {
-             const count = await transferApi.queueFolderUpload(bucketName, bucketRegion, prefix, folder);
+             const count = await transferApi.queueFolderUpload(bucketName, bucketRegion, prefix, folder, activeProfileId);
              totalFiles += count;
          }
 
@@ -676,6 +720,10 @@ function BucketContent() {
 
   const handleDownloadSelected = async () => {
     if (selectedKeys.size === 0) return;
+    if (Array.from(selectedKeys).some(key => !currentFolderKeys.has(key) && !currentObjectSizeMap.has(key))) {
+      displayError('The selection is no longer available. Select the items again.');
+      return;
+    }
 
     // Select directory for downloads
     const selected = await open({
@@ -709,12 +757,12 @@ function BucketContent() {
           if (isSelectedFolder) {
             const folderName = key.split('/').filter(Boolean).pop() || 'folder';
             const localPath = joinLocalPath(downloadDir, folderName);
-            await transferApi.queueFolderDownload(bucketName || '', bucketRegion, key, localPath);
+            await transferApi.queueFolderDownload(bucketName || '', bucketRegion, key, localPath, activeProfileId);
             count++;
           } else if (selectedObjectSize !== undefined) {
             const fileName = key.split('/').pop() || 'file';
             const localPath = joinLocalPath(downloadDir, fileName);
-            await transferApi.queueDownload(bucketName || '', bucketRegion, key, localPath, selectedObjectSize);
+            await transferApi.queueDownload(bucketName || '', bucketRegion, key, localPath, selectedObjectSize, false, activeProfileId);
             count++;
           }
         }));
@@ -749,21 +797,29 @@ function BucketContent() {
             // Must use: empty delimiter (to get all nested objects) AND bypassCache (to avoid cached folder structure)
             try {
               let continuationToken: string | undefined;
+              const seenTokens = new Set<string>();
+              let pages = 0;
               do {
                 // Empty delimiter = flat list of ALL objects, bypassCache = true = skip folder-structured cache
-                const result = await objectApi.listObjects(bucketName, bucketRegion, key, '', continuationToken, true);
+                const result = await objectApi.listObjects(bucketName, bucketRegion, key, '', continuationToken, true, undefined, undefined, activeProfileId);
+                if (useProfileStore.getState().activeProfileId !== activeProfileId) {
+                  throw new Error('The active profile changed. Nothing was deleted.');
+                }
                 // Add all objects under this prefix (since delimiter is empty, no common_prefixes will be returned)
                 for (const obj of result.objects) {
                   keysToDelete.add(obj.key);
                 }
                 continuationToken = result.next_continuation_token || undefined;
+                if (++pages > 100 || keysToDelete.size > 100_000 || (result.is_truncated && !continuationToken) || (continuationToken && seenTokens.has(continuationToken))) {
+                  throw new Error("Folder listing is incomplete or exceeds the safety limit. Select a smaller prefix.");
+                }
+                if (continuationToken) seenTokens.add(continuationToken);
               } while (continuationToken);
               // Also delete the folder marker itself
               keysToDelete.add(key);
             } catch (listErr) {
               console.error(`Failed to list folder contents: ${key}`, listErr);
-              // Still try to delete the folder marker
-              keysToDelete.add(key);
+              throw new Error(`Could not list all objects in ${key}. Nothing was deleted. ${listErr instanceof Error ? listErr.message : String(listErr)}`);
             }
           } else {
             // It's a file - just add it
@@ -779,7 +835,10 @@ function BucketContent() {
 
         // Delete all collected keys
         const keysToDeleteList = Array.from(keysToDelete);
-        await operationsApi.deleteObjects(bucketName, bucketRegion, keysToDeleteList);
+        if (useProfileStore.getState().activeProfileId !== activeProfileId) {
+          throw new Error('The active profile changed. Nothing was deleted.');
+        }
+        await operationsApi.deleteObjects(bucketName, bucketRegion, keysToDeleteList, activeProfileId);
         displaySuccess(`Successfully deleted ${keysToDeleteList.length} items`);
         setSelectedKeys(new Set());
         refresh();
@@ -823,7 +882,7 @@ function BucketContent() {
             const dir = Array.isArray(downloadDir) ? downloadDir[0] : downloadDir;
             const folderName = target.key.split('/').filter(Boolean).pop() || 'folder';
             const localPath = joinLocalPath(dir, folderName);
-            await transferApi.queueFolderDownload(bucketName, bucketRegion, target.key, localPath);
+            await transferApi.queueFolderDownload(bucketName, bucketRegion, target.key, localPath, activeProfileId);
             displaySuccess('Folder download queued', '/downloads');
         }
       } else {
@@ -840,7 +899,9 @@ function BucketContent() {
               bucketRegion,
               target.key,
               savePath,
-              selectedFileSize || 0
+              selectedFileSize || 0,
+              true,
+              activeProfileId
           );
           displaySuccess('Download queued', '/downloads');
         }
@@ -865,6 +926,12 @@ function BucketContent() {
   const [renameOpen, setRenameOpen] = useState(false);
   const [renameValue, setRenameValue] = useState('');
   const [renameTarget, setRenameTarget] = useState<{ key: string; isFolder: boolean } | null>(null);
+
+  useEffect(() => {
+    setRenameOpen(false);
+    setRenameTarget(null);
+    setRenameValue('');
+  }, [viewKey]);
 
   const handleRenamePrompt = () => {
     if (selectedObject) {
@@ -1051,6 +1118,21 @@ function BucketContent() {
           </Breadcrumbs>
         </Box>
 
+        <Tooltip title={bucketIsFavorite ? 'Remove bucket root from Favorites' : 'Add bucket root to Favorites'}>
+          <IconButton
+            size="small"
+            color={bucketIsFavorite ? 'warning' : 'default'}
+            aria-label={bucketIsFavorite ? 'Remove bucket root from Favorites' : 'Add bucket root to Favorites'}
+            aria-pressed={bucketIsFavorite}
+            disabled={!bucketName || !activeProfileId}
+            onClick={handleToggleBucketFavorite}
+          >
+            {bucketIsFavorite
+              ? <StarIcon fontSize="small" />
+              : <StarBorderIcon fontSize="small" />}
+          </IconButton>
+        </Tooltip>
+
 
         {/* Action Buttons */}
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
@@ -1086,6 +1168,7 @@ function BucketContent() {
            />
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 0.5 }}>
               <StyledCheckbox
+                aria-label="Deep search"
                 checked={isDeepSearch}
                 onChange={(e) => setIsDeepSearch(e.target.checked)}
               />
@@ -1254,7 +1337,8 @@ function BucketContent() {
         isLoading={isLoading || isSearching}
         onNavigate={handleNavigate}
         onSelect={handleSelect}
-        onEndReached={loadMore}
+        onEndReached={!isDeepSearch && hasMore ? loadMore : undefined}
+        isLoadingMore={isLoadingMore}
         onSelectAll={handleSelectAll}
         onMenuOpen={handleMenuOpen}
         onSortChange={(field) => {
@@ -1270,7 +1354,7 @@ function BucketContent() {
           const filename = key.split('/').pop() || 'download';
           const savePath = await save({ defaultPath: filename, title: 'Save file as' });
           if (savePath && bucketName) {
-            const jobId = await transferApi.queueDownload(bucketName, bucketRegion, key, savePath, objectSize);
+            const jobId = await transferApi.queueDownload(bucketName, bucketRegion, key, savePath, objectSize, true, activeProfileId);
             // Add to transfer store so it shows in the panel
             addJob({
               id: jobId,
@@ -1582,6 +1666,12 @@ function BucketContent() {
         bucketRegion={bucketRegion}
         objectKey={previewKey || ''}
         objectSize={previewSize}
+        imageSequence={imageSequence}
+        onNavigateImage={key => {
+          setPreviewKey(key);
+          setPreviewSize(currentObjectSizeMap.get(key));
+          setStartInEditMode(false);
+        }}
         onSave={() => refresh()}
         startInEditMode={startInEditMode}
       />

@@ -10,6 +10,21 @@ use std::sync::Arc;
 use tauri::{AppHandle, Manager};
 use tokio::sync::RwLock;
 
+pub(crate) fn write_private_file(path: &std::path::Path, content: &[u8]) -> Result<()> {
+    use std::io::Write;
+    let parent = path
+        .parent()
+        .ok_or_else(|| crate::error::AppError::IoError("Missing storage directory".to_string()))?;
+    std::fs::create_dir_all(parent)?;
+    let mut replacement = tempfile::NamedTempFile::new_in(parent)?;
+    replacement.write_all(content)?;
+    replacement.as_file().sync_all()?;
+    replacement
+        .persist(path)
+        .map_err(|error| crate::error::AppError::IoError(error.error.to_string()))?;
+    Ok(())
+}
+
 fn portable_data_dir() -> Option<PathBuf> {
     let env_portable = std::env::var("BROWS3_PORTABLE")
         .map(|value| matches!(value.to_ascii_lowercase().as_str(), "1" | "true" | "yes"))
@@ -28,7 +43,7 @@ fn portable_data_dir() -> Option<PathBuf> {
 
 /// Initialize the credentials manager and register it as app state.
 /// This must happen during Tauri setup before frontend commands run.
-pub fn init<R: tauri::Runtime>(app: &AppHandle<R>) -> Result<()> {
+pub fn init<R: tauri::Runtime>(app: &AppHandle<R>) -> Result<PathBuf> {
     // When both Linux backends are compiled, make the persistent desktop
     // Secret Service selection explicit. Kernel keyutils is retained only so
     // KeychainStorage can migrate credentials written by older Brows3 builds.
@@ -48,7 +63,7 @@ pub fn init<R: tauri::Runtime>(app: &AppHandle<R>) -> Result<()> {
     // Ensure config directory exists
     std::fs::create_dir_all(&config_dir)?;
 
-    let manager = ProfileManager::new(config_dir, force_secret_fallback)?;
+    let manager = ProfileManager::new(config_dir.clone(), force_secret_fallback)?;
     let state = Arc::new(RwLock::new(manager));
 
     app.manage(state);
@@ -61,5 +76,5 @@ pub fn init<R: tauri::Runtime>(app: &AppHandle<R>) -> Result<()> {
             ""
         }
     );
-    Ok(())
+    Ok(config_dir)
 }

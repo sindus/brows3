@@ -1,5 +1,6 @@
 import { useMonitorStore } from '@/store/monitorStore';
 import { useConsoleStore, toAwsCliCommand } from '@/store/consoleStore';
+import { useProfileStore } from '@/store/profileStore';
 
 // Check if running in Tauri environment
 export const isTauri = (): boolean => {
@@ -17,6 +18,7 @@ const getTauriInvoke = async () => {
 
 // Monitored invoke wrapper
 const invoke = async <T>(cmd: string, args?: Record<string, unknown>): Promise<T> => {
+  const scopedArgs = { expectedProfileId: useProfileStore.getState().activeProfileId, ...args };
   const store = useMonitorStore.getState();
   const console_ = useConsoleStore.getState();
   store.incrementRequests();
@@ -28,7 +30,10 @@ const invoke = async <T>(cmd: string, args?: Record<string, unknown>): Promise<T
 
   try {
     const tauriInvoke = await getTauriInvoke();
-    const result = await tauriInvoke<T>(cmd, args);
+    if (scopedArgs.expectedProfileId && scopedArgs.expectedProfileId !== useProfileStore.getState().activeProfileId) {
+      throw new Error('The active profile changed. Select the items again.');
+    }
+    const result = await tauriInvoke<T>(cmd, scopedArgs);
     store.addLog('success', cmd);
     const duration = Date.now() - startTime;
     consoleIds.forEach((id) => console_.resolveEntry(id, 'success', undefined, duration));
@@ -54,18 +59,19 @@ const invoke = async <T>(cmd: string, args?: Record<string, unknown>): Promise<T
 };
 
 // Cache invalidation helper - hooks can subscribe to write-driven invalidation
-const cacheInvalidators = new Set<() => void>();
+type CacheScope = 'objects' | 'buckets';
+const cacheInvalidators = new Set<(scope: CacheScope) => void>();
 
-export const subscribeCacheInvalidation = (fn: () => void) => {
+export const subscribeCacheInvalidation = (fn: (scope: CacheScope) => void) => {
   cacheInvalidators.add(fn);
   return () => {
     cacheInvalidators.delete(fn);
   };
 };
 
-export const invalidateCache = () => {
+export const invalidateCache = (scope: CacheScope = 'objects') => {
   for (const fn of cacheInvalidators) {
-    fn();
+    fn(scope);
   }
 };
 
@@ -191,6 +197,24 @@ export interface BucketWithRegion {
 
 // Bucket API wrapper functions
 export const bucketApi = {
+  async createBucket(bucketName: string, region: string, expectedProfileId: string): Promise<void> {
+    await invoke<void>('create_bucket', { bucketName, region, expectedProfileId });
+    invalidateCache('buckets');
+  },
+
+  async deleteBucket(bucketName: string, bucketRegion: string, confirmation: string, expectedProfileId: string): Promise<void> {
+    await invoke<void>('delete_bucket', { bucketName, bucketRegion, confirmation, expectedProfileId });
+    invalidateCache('buckets');
+  },
+
+  async getBucketPolicy(bucketName: string, bucketRegion: string, expectedProfileId: string): Promise<string | null> {
+    return invoke<string | null>('get_bucket_policy', { bucketName, bucketRegion, expectedProfileId });
+  },
+
+  async putBucketPolicy(bucketName: string, bucketRegion: string, policy: string | null, expectedPolicy: string | null, expectedProfileId: string): Promise<void> {
+    await invoke<void>('put_bucket_policy', { bucketName, bucketRegion, policy, expectedPolicy, expectedProfileId });
+  },
+
   async listBuckets(): Promise<BucketInfo[]> {
     return invoke<BucketInfo[]>('list_buckets');
   },
@@ -240,7 +264,8 @@ export const objectApi = {
     continuationToken?: string,
     bypassCache = false,
     sortField?: 'name' | 'size' | 'date' | 'class',
-    sortDirection?: 'asc' | 'desc'
+    sortDirection?: 'asc' | 'desc',
+    expectedProfileId = useProfileStore.getState().activeProfileId
   ): Promise<ListObjectsResult> {
     return invoke<ListObjectsResult>('list_objects', { 
       bucketName, 
@@ -250,7 +275,7 @@ export const objectApi = {
       continuationToken: continuationToken || null,
       bypassCache,
       sortField: sortField || null,
-      sortDirection: sortDirection || null
+      sortDirection: sortDirection || null, expectedProfileId
     });
   },
 
@@ -262,13 +287,16 @@ export const objectApi = {
     return invoke<string>('get_presigned_url', { bucketName, bucketRegion, key, expiresIn });
   },
 
-  async getObjectContent(bucketName: string, bucketRegion: string | undefined, key: string, maxBytes: number): Promise<string> {
-    return invoke<string>('get_object_content', { bucketName, bucketRegion, key, maxBytes });
+  async getObjectContent(bucketName: string, bucketRegion: string | undefined, key: string, maxBytes: number): Promise<{ content: string; e_tag: string | null; profile_id: string }> {
+    return invoke<{ content: string; e_tag: string | null; profile_id: string }>('get_object_content', { bucketName, bucketRegion, key, maxBytes });
   },
 
-  async putObjectContent(bucketName: string, bucketRegion: string | undefined, key: string, content: string, contentType?: string | null): Promise<void> {
-    await invoke<void>('put_object_content', { bucketName, bucketRegion, key, content, contentType });
-    invalidateCache();
+  async putObjectContent(bucketName: string, bucketRegion: string | undefined, key: string, content: string, expectedEtag: string, expectedProfileId: string): Promise<string | null> {
+    try {
+      return await invoke<string | null>('put_object_content', { bucketName, bucketRegion, key, content, expectedEtag, expectedProfileId });
+    } finally {
+      invalidateCache();
+    }
   },
 
   async getObjectMetadata(bucketName: string, bucketRegion: string | undefined, key: string): Promise<ObjectMetadata> {
@@ -291,19 +319,30 @@ export const operationsApi = {
     invalidateCache(); // Auto-refresh after delete
   },
 
-  async copyObject(sourceBucket: string, sourceRegion: string | undefined, sourceKey: string, destinationBucket: string, destinationRegion: string | undefined, destinationKey: string): Promise<void> {
-    await invoke<void>('copy_object', { sourceBucket, sourceRegion, sourceKey, destinationBucket, destinationRegion, destinationKey });
-    invalidateCache(); // Auto-refresh after copy
+  async copyObject(sourceBucket: string, sourceRegion: string | undefined, sourceKey: string, destinationBucket: string, destinationRegion: string | undefined, destinationKey: string, expectedProfileId = useProfileStore.getState().activeProfileId): Promise<void> {
+    if (!expectedProfileId || expectedProfileId !== useProfileStore.getState().activeProfileId) {
+      throw new Error('The active profile changed. Copy or select the items again.');
+    }
+    try {
+      await invoke<void>('copy_object', { sourceBucket, sourceRegion, sourceKey, destinationBucket, destinationRegion, destinationKey, expectedProfileId });
+    } finally { invalidateCache(); }
   },
 
-  async moveObject(sourceBucket: string, sourceRegion: string | undefined, sourceKey: string, destinationBucket: string, destinationRegion: string | undefined, destinationKey: string): Promise<void> {
-    await invoke<void>('move_object', { sourceBucket, sourceRegion, sourceKey, destinationBucket, destinationRegion, destinationKey });
-    invalidateCache(); // Auto-refresh after move
+  async moveObject(sourceBucket: string, sourceRegion: string | undefined, sourceKey: string, destinationBucket: string, destinationRegion: string | undefined, destinationKey: string, expectedProfileId = useProfileStore.getState().activeProfileId): Promise<void> {
+    if (!expectedProfileId || expectedProfileId !== useProfileStore.getState().activeProfileId) {
+      throw new Error('The active profile changed. Copy or select the items again.');
+    }
+    try {
+      await invoke<void>('move_object', { sourceBucket, sourceRegion, sourceKey, destinationBucket, destinationRegion, destinationKey, expectedProfileId });
+    } finally { invalidateCache(); }
   },
 
-  async deleteObjects(bucketName: string, bucketRegion: string | undefined, keys: string[]): Promise<void> {
-    await invoke<void>('delete_objects', { bucketName, bucketRegion, keys });
-    invalidateCache(); // Auto-refresh after bulk delete
+  async deleteObjects(bucketName: string, bucketRegion: string | undefined, keys: string[], expectedProfileId = useProfileStore.getState().activeProfileId): Promise<void> {
+    try {
+      await invoke<void>('delete_objects', { bucketName, bucketRegion, keys, expectedProfileId });
+    } finally {
+      invalidateCache();
+    }
   },
 
   async getObjectMetadata(bucketName: string, bucketRegion: string | undefined, key: string): Promise<ObjectMetadata> {
@@ -385,6 +424,7 @@ export interface TransferJob {
   local_path: string;
   total_bytes: number;
   processed_bytes: number;
+  bytes_per_second?: number;
   status: 'Pending' | 'InProgress' | 'Completed' | { Failed: string } | 'Paused' | 'Cancelled';
   created_at: number; // milliseconds
   finished_at?: number; // milliseconds
@@ -396,6 +436,7 @@ export interface TransferJob {
 export interface TransferEvent {
   job_id: string;
   processed_bytes: number;
+  bytes_per_second?: number;
   total_bytes: number;
   status: TransferJob['status'];
   finished_at?: number;
@@ -430,20 +471,20 @@ export const thumbnailApi = {
 };
 
 export const transferApi = {
-  async queueUpload(bucketName: string, bucketRegion: string | undefined, key: string, localPath: string, totalBytes: number): Promise<string> {
-    return invoke<string>('queue_upload', { bucketName, bucketRegion, key, localPath, totalBytes });
+  async queueUpload(bucketName: string, bucketRegion: string | undefined, key: string, localPath: string, totalBytes: number, expectedProfileId = useProfileStore.getState().activeProfileId): Promise<string> {
+    return invoke<string>('queue_upload', { bucketName, bucketRegion, key, localPath, totalBytes, expectedProfileId });
   },
 
-  async queueDownload(bucketName: string, bucketRegion: string | undefined, key: string, localPath: string, totalBytes: number): Promise<string> {
-    return invoke<string>('queue_download', { bucketName, bucketRegion, key, localPath, totalBytes });
+  async queueDownload(bucketName: string, bucketRegion: string | undefined, key: string, localPath: string, totalBytes: number, overwrite = false, expectedProfileId = useProfileStore.getState().activeProfileId): Promise<string> {
+    return invoke<string>('queue_download', { bucketName, bucketRegion, key, localPath, totalBytes, overwrite, expectedProfileId });
   },
 
-  async queueFolderUpload(bucketName: string, bucketRegion: string | undefined, prefix: string, localPath: string): Promise<number> {
-    return invoke<number>('queue_folder_upload', { bucketName, bucketRegion, prefix, localPath });
+  async queueFolderUpload(bucketName: string, bucketRegion: string | undefined, prefix: string, localPath: string, expectedProfileId = useProfileStore.getState().activeProfileId): Promise<number> {
+    return invoke<number>('queue_folder_upload', { bucketName, bucketRegion, prefix, localPath, expectedProfileId });
   },
 
-  async queueFolderDownload(bucketName: string, bucketRegion: string | undefined, prefix: string, localPath: string): Promise<number> {
-    return invoke<number>('queue_folder_download', { bucketName, bucketRegion, prefix, localPath });
+  async queueFolderDownload(bucketName: string, bucketRegion: string | undefined, prefix: string, localPath: string, expectedProfileId = useProfileStore.getState().activeProfileId): Promise<number> {
+    return invoke<number>('queue_folder_download', { bucketName, bucketRegion, prefix, localPath, expectedProfileId });
   },
 
   async listTransfers(): Promise<TransferJob[]> {
