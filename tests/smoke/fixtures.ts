@@ -12,6 +12,7 @@ export class DesktopBackend {
   ];
   activeProfile = 'a';
   emptyListingPages = 0;
+  pageSize = 0;
   buckets = ['demo-bucket'];
   bucketPolicy: string | null = null;
   deleteBucketError = '';
@@ -63,7 +64,14 @@ export class DesktopBackend {
         }
         const prefix = String(args.prefix || '');
         const objects = this.activeProfile === 'a' ? this.objects : [object('production.txt')];
-        return { objects: objects.filter(item => item.key.startsWith(prefix) && !item.key.slice(prefix.length).includes('/')), common_prefixes: prefix ? [] : ['nested/'], next_continuation_token: null, is_truncated: false, prefix, bucket_region: 'us-east-1' };
+        const visible = objects.filter(item => item.key.startsWith(prefix) && !item.key.slice(prefix.length).includes('/'));
+        if (this.pageSize > 0) {
+          const start = args.continuationToken ? Number(String(args.continuationToken).replace('offset-', '')) : 0;
+          const end = start + this.pageSize;
+          const more = end < visible.length;
+          return { objects: visible.slice(start, end), common_prefixes: prefix || start ? [] : ['nested/'], next_continuation_token: more ? `offset-${end}` : null, is_truncated: more, prefix, bucket_region: 'us-east-1' };
+        }
+        return { objects: visible, common_prefixes: prefix ? [] : ['nested/'], next_continuation_token: null, is_truncated: false, prefix, bucket_region: 'us-east-1' };
       }
       case 'search_objects': return { objects: this.objects.filter(item => item.key.includes(String(args.query))), scanned_objects: this.objects.length, is_truncated: false };
       case 'get_object_metadata': return { key: args.key, size: this.content.length, content_type: String(args.key).endsWith('.wav') ? 'audio/wav' : String(args.key).endsWith('.svg') ? 'image/svg+xml' : this.contentType, e_tag: this.etag, last_modified: null, storage_class: null, user_metadata: {} };
@@ -83,6 +91,11 @@ export class DesktopBackend {
         return null;
       }
       case 'delete_objects': this.objects = this.objects.filter(item => !(args.keys as string[]).includes(item.key)); return null;
+      case 'get_cache_info': return { total_size_bytes: 0, limit_bytes: 1_073_741_824, entry_count: 0 };
+      case 'start_thumbnail_generation':
+      case 'cancel_thumbnail_generation':
+      case 'clear_thumbnail_cache':
+      case 'set_cache_limit': return null;
       case 'list_transfers': return this.transfers;
       case 'plugin:dialog|save': return '/virtual/downloads/notes.txt';
       case 'plugin:dialog|open': return (args.options as Args)?.directory ? '/virtual/downloads' : ['/virtual/upload.txt'];

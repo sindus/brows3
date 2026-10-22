@@ -1,6 +1,6 @@
 'use client';
 
-import { memo, useMemo, useCallback, useState } from 'react';
+import { memo, useMemo, useCallback, useEffect, useRef, useState } from 'react';
 import {
   Box,
   Typography,
@@ -257,9 +257,12 @@ export const GridObjectView = memo(function GridObjectView({
   onSelect,
   onMenuOpen,
   onPreview,
+  onEndReached,
   thumbnails,
   previews,
 }: Props) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
   const items = useMemo<GridItem[]>(() => {
     const result: GridItem[] = [];
     for (const prefix of folders) {
@@ -273,9 +276,25 @@ export const GridObjectView = memo(function GridObjectView({
     return result;
   }, [folders, objects]);
 
+  // Ask for the next page while the end-of-grid sentinel is (nearly) visible.
+  // Observing again after every change re-checks it, so a short first page
+  // keeps loading until the grid fills the view or no pages remain.
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!onEndReached || !sentinel) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) onEndReached();
+      },
+      { root: scrollRef.current, rootMargin: '300px' },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [onEndReached, items.length, isLoading]);
+
   return (
     <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', border: 1, borderColor: 'divider', borderRadius: 1, overflow: 'hidden' }}>
-      <Box sx={{ flex: 1, overflow: 'auto' }}>
+      <Box ref={scrollRef} sx={{ flex: 1, overflow: 'auto' }}>
         {isLoading ? (
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 200, gap: 2 }}>
             <CircularProgress size={32} />
@@ -286,28 +305,31 @@ export const GridObjectView = memo(function GridObjectView({
             <Typography color="text.secondary">Empty folder</Typography>
           </Box>
         ) : (
-          <Box
-            sx={{
-              display: 'grid',
-              gridTemplateColumns: `repeat(auto-fill, minmax(${CARD_WIDTH}px, 1fr))`,
-              gap: 1.5,
-              p: 1.5,
-            }}
-          >
-            {items.map((item) => (
-              <GridCard
-                key={item.key}
-                item={item}
-                isSelected={selectedKeys.has(item.key)}
-                thumbnail={thumbnails?.get(item.key)}
-                preview={previews?.get(item.key)}
-                onSelect={onSelect}
-                onNavigate={onNavigate}
-                onMenuOpen={onMenuOpen}
-                onPreview={onPreview}
-              />
-            ))}
-          </Box>
+          <>
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: `repeat(auto-fill, minmax(${CARD_WIDTH}px, 1fr))`,
+                gap: 1.5,
+                p: 1.5,
+              }}
+            >
+              {items.map((item) => (
+                <GridCard
+                  key={item.key}
+                  item={item}
+                  isSelected={selectedKeys.has(item.key)}
+                  thumbnail={thumbnails?.get(item.key)}
+                  preview={previews?.get(item.key)}
+                  onSelect={onSelect}
+                  onNavigate={onNavigate}
+                  onMenuOpen={onMenuOpen}
+                  onPreview={onPreview}
+                />
+              ))}
+            </Box>
+            <Box ref={sentinelRef} aria-hidden sx={{ height: 1 }} />
+          </>
         )}
       </Box>
 

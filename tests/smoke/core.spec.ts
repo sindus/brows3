@@ -52,6 +52,7 @@ test('copy and paste through a selected row retain the source profile', async ({
   await selection.check();
   await selection.press('Control+c');
   await page.getByText('nested/', { exact: true }).dblclick();
+  await expect(page).toHaveURL(/prefix=nested%2F/);
   await page.locator('body').press('Control+v');
   await expect.poll(() => backend.calls.find(call => call.command === 'copy_object')?.args).toMatchObject({ sourceKey: 'notes.txt', destinationKey: 'nested/notes.txt', expectedProfileId: 'a' });
   await expect(page.getByRole('checkbox', { name: 'Select nested/notes.txt', exact: true })).toBeVisible();
@@ -152,6 +153,20 @@ test('empty truncated listings remain pageable until objects arrive', async ({ p
   await expect(page.getByRole('checkbox', { name: 'Select notes.txt', exact: true })).toBeVisible();
   expect(backend.calls.filter(call => call.command === 'list_objects').map(call => call.args.continuationToken)).toEqual([null, 'page-1', 'page-0']);
   await expect(page.getByRole('button', { name: 'Load more', exact: true })).toHaveCount(0);
+});
+
+test('grid view loads the next page when scrolled to the end', async ({ page, backend }) => {
+  const name = (index: number) => `file-${String(index).padStart(3, '0')}.txt`;
+  backend.objects = Array.from({ length: 120 }, (_, index) => ({ key: name(index), size: 20, last_modified: '2026-01-01T00:00:00Z', storage_class: 'STANDARD' }));
+  backend.pageSize = 40;
+  await page.goto(bucketUrl);
+  await page.getByRole('button', { name: 'Switch to Grid View', exact: true }).click();
+  for (const lastOfPage of [39, 79]) {
+    await expect(page.getByText(name(lastOfPage), { exact: true })).toBeAttached();
+    await page.getByText(name(lastOfPage), { exact: true }).scrollIntoViewIfNeeded();
+  }
+  await expect(page.getByText(name(119), { exact: true })).toBeAttached();
+  expect(backend.calls.filter(call => call.command === 'list_objects').map(call => call.args.continuationToken)).toEqual([null, 'offset-40', 'offset-80']);
 });
 
 for (const transferType of ['Upload', 'Download'] as const) {

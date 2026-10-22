@@ -1323,7 +1323,7 @@ function BucketContent() {
             setPreviewSize(size);
             setPreviewOpen(true);
           }}
-          onEndReached={loadMore}
+          onEndReached={!isDeepSearch && hasMore ? loadMore : undefined}
           thumbnails={thumbnails}
           previews={previews}
         />
