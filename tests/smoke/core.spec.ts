@@ -169,6 +169,25 @@ test('grid view loads the next page when scrolled to the end', async ({ page, ba
   expect(backend.calls.filter(call => call.command === 'list_objects').map(call => call.args.continuationToken)).toEqual([null, 'offset-40', 'offset-80']);
 });
 
+test('update checks use the manifest entry of a Debian package install', async ({ page, backend }) => {
+  backend.updaterTarget = 'linux-x86_64-deb';
+  await page.goto('/settings');
+  await page.getByRole('button', { name: 'Check Now', exact: true }).click();
+  await expect(page.getByText('Up to date', { exact: true })).toBeVisible();
+  const checks = backend.calls.filter(call => call.command === 'plugin:updater|check');
+  expect(checks.length).toBeGreaterThan(0);
+  expect(checks.every(call => call.args.target === 'linux-x86_64-deb')).toBe(true);
+});
+
+test('update checks keep the default manifest entry for other installs', async ({ page, backend }) => {
+  await page.goto('/settings');
+  await page.getByRole('button', { name: 'Check Now', exact: true }).click();
+  await expect(page.getByText('Up to date', { exact: true })).toBeVisible();
+  const checks = backend.calls.filter(call => call.command === 'plugin:updater|check');
+  expect(checks.length).toBeGreaterThan(0);
+  expect(checks.every(call => call.args.target === undefined)).toBe(true);
+});
+
 for (const transferType of ['Upload', 'Download'] as const) {
   test(`${transferType} failures show the provider message without hovering`, async ({ page, backend }) => {
     backend.transfers = [{ id: 'failed', profile_id: 'a', transfer_type: transferType, bucket: 'demo-bucket', bucket_region: 'us-east-1', key: 'failed.txt', local_path: '/virtual/failed.txt', total_bytes: 4, processed_bytes: 0, status: { Failed: 'AccessDenied: This key cannot write objects' }, created_at: Date.now() }];

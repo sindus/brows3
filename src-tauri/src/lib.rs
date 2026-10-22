@@ -5,7 +5,8 @@ pub mod s3;
 pub mod transfer;
 
 use commands::{
-    bucket_management, buckets, objects, operations, profiles, thumbnails, transfer as transfer_cmd,
+    bucket_management, buckets, objects, operations, profiles, thumbnails,
+    transfer as transfer_cmd, updater,
 };
 use s3::S3ClientManager;
 use serde::Serialize;
@@ -330,6 +331,7 @@ pub fn run() {
             thumbnails::get_cache_info,
             thumbnails::clear_thumbnail_cache,
             thumbnails::set_cache_limit,
+            updater::get_updater_target,
             get_log_file_info,
         ])
         .run(tauri::generate_context!())

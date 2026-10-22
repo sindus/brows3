@@ -5,6 +5,7 @@ pub mod operations;
 pub mod profiles;
 pub mod thumbnails;
 pub mod transfer;
+pub mod updater;
 
 #[cfg(test)]
 pub(crate) mod test_s3;

@@ -13,6 +13,7 @@ export class DesktopBackend {
   activeProfile = 'a';
   emptyListingPages = 0;
   pageSize = 0;
+  updaterTarget: string | null = null;
   buckets = ['demo-bucket'];
   bucketPolicy: string | null = null;
   deleteBucketError = '';
@@ -91,6 +92,7 @@ export class DesktopBackend {
         return null;
       }
       case 'delete_objects': this.objects = this.objects.filter(item => !(args.keys as string[]).includes(item.key)); return null;
+      case 'get_updater_target': return this.updaterTarget;
       case 'get_cache_info': return { total_size_bytes: 0, limit_bytes: 1_073_741_824, entry_count: 0 };
       case 'start_thumbnail_generation':
       case 'cancel_thumbnail_generation':

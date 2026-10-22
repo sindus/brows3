@@ -41,7 +41,7 @@ import { useAppStore } from '@/store/appStore';
 import { useMonitorStore } from '@/store/monitorStore';
 import { invalidateBucketCache } from '@/hooks/useBuckets';
 import { toast } from '@/store/toastStore';
-import { bucketApi, copyToClipboard, invalidateCache, isTauri, logApi, thumbnailApi, type CacheInfo, type LogFileInfo } from '@/lib/tauri';
+import { bucketApi, copyToClipboard, invalidateCache, isTauri, logApi, thumbnailApi, updaterApi, type CacheInfo, type LogFileInfo } from '@/lib/tauri';
 import { formatSize } from '@/lib/utils';
 
 export default function SettingsPage() {
@@ -124,8 +124,7 @@ export default function SettingsPage() {
 
     setIsCheckingUpdate(true);
     try {
-      const { check } = await import('@tauri-apps/plugin-updater');
-      const update = await check();
+      const update = await updaterApi.check();
       if (update) {
         toast.success('Update available', `Version ${update.version} is available. It will install automatically.`);
         await update.downloadAndInstall();

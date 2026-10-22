@@ -29,7 +29,7 @@ import { useSettingsStore } from '@/store/settingsStore';
 import ProfileDialog from '@/components/profile/ProfileDialog';
 import ToastContainer from '@/components/common/ToastContainer';
 import { toast } from '@/store/toastStore';
-import { profileApi, transferApi } from '@/lib/tauri';
+import { profileApi, transferApi, updaterApi } from '@/lib/tauri';
 import { useClipboardShortcuts } from '@/hooks/useClipboardShortcuts';
 import { preloadMonaco } from '@/lib/monaco-config';
 
@@ -61,6 +61,7 @@ export default function AppShell({ children }: AppShellProps) {
   
   // Handle hydration mismatch
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- client-only render after hydration
     setMounted(true);
     // Preload Monaco Editor in background for faster file editing
     preloadMonaco();
@@ -152,9 +153,7 @@ export default function AppShell({ children }: AppShellProps) {
       await new Promise(resolve => setTimeout(resolve, 2000));
       
       try {
-        // Dynamic import to avoid SSR issues
-        const { check } = await import('@tauri-apps/plugin-updater');
-        const update = await check();
+        const update = await updaterApi.check();
         if (update?.available) {
           toast.info("Update available", `Version ${update.version} is ready. Install it from Settings.`);
         }

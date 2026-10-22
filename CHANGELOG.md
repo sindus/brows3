@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- **Updates On Debian And Ubuntu**: Updating an app installed from the `.deb` package no longer fails with "invalid updater binary format". The update manifest now lists the `.deb` packages, and an app installed from a package asks for them instead of the AppImage. Versions up to 0.5.8 cannot use this and must be updated once by hand, with the install script or by installing the new `.deb`.
+
 ## [0.5.8] - 2026-10-22
 
 ### Fixed

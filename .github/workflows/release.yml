@@ -602,12 +602,17 @@ jobs:
           
           # Windows (NSIS) - matches Brows3_<version>_x64-setup.exe
           add_platform "windows-x86_64" "_x64-setup\\.exe$" "_x64-setup\\.exe\\.sig$"
+
+          # Linux .deb installs. The updater installs a .deb when the app belongs
+          # to a Debian package, and the app asks for these keys (get_updater_target).
+          add_platform "linux-x86_64-deb" "_amd64\\.deb$" "_amd64\\.deb\\.sig$"
+          add_platform "linux-aarch64-deb" "_(arm64|aarch64)\\.deb$" "_(arm64|aarch64)\\.deb\\.sig$"
           
           # Check if we have any platforms
           PLATFORM_COUNT=$(echo "$PLATFORMS" | jq 'keys | length')
           
-          if [ "$PLATFORM_COUNT" -ne "5" ]; then
-            echo "::error::Expected 5 signed updater platforms, but generated $PLATFORM_COUNT."
+          if [ "$PLATFORM_COUNT" -ne "7" ]; then
+            echo "::error::Expected 7 signed updater platforms, but generated $PLATFORM_COUNT."
             exit 1
           else
             echo "Successfully added all $PLATFORM_COUNT platforms to update manifest"

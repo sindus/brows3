@@ -470,6 +470,17 @@ export const thumbnailApi = {
   },
 };
 
+export const updaterApi = {
+  // A Linux .deb install updates from the .deb, which the update manifest lists
+  // under its own key. Every other install uses the updater's default key.
+  async check() {
+    // Dynamic import to avoid SSR issues
+    const { check } = await import('@tauri-apps/plugin-updater');
+    const target = await invoke<string | null>('get_updater_target').catch(() => null);
+    return check(target ? { target } : undefined);
+  },
+};
+
 export const transferApi = {
   async queueUpload(bucketName: string, bucketRegion: string | undefined, key: string, localPath: string, totalBytes: number, expectedProfileId = useProfileStore.getState().activeProfileId): Promise<string> {
     return invoke<string>('queue_upload', { bucketName, bucketRegion, key, localPath, totalBytes, expectedProfileId });
