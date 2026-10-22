@@ -243,8 +243,13 @@ jobs:
         if: matrix.platform == 'macos-latest' && contains(matrix.args, 'aarch64')
         run: |
           mkdir -p src-tauri/binaries
-          brew install ffmpeg
-          cp "$(brew --prefix ffmpeg)/bin/ffmpeg" src-tauri/binaries/brows3-ffmpeg-aarch64-apple-darwin
+          # Use a static build: Homebrew's ffmpeg loads libraries from /opt/homebrew,
+          # which do not exist on users' Macs.
+          curl -fL --retry 3 --connect-timeout 30 --max-time 300 \
+            "https://ffmpeg.martin-riedl.de/download/macos/arm64/1789931890_9.0.2/ffmpeg.zip" -o ffmpeg-macos-arm64.zip
+          echo "c8ed4c4e6978a03c485edbfe4e0a5dc2380f8a30bba5150531b31b094492d924  ffmpeg-macos-arm64.zip" | shasum -a 256 -c -
+          unzip -j ffmpeg-macos-arm64.zip ffmpeg -d src-tauri/binaries/
+          mv src-tauri/binaries/ffmpeg src-tauri/binaries/brows3-ffmpeg-aarch64-apple-darwin
           chmod +x src-tauri/binaries/brows3-ffmpeg-aarch64-apple-darwin
 
       - name: Download ffmpeg sidecar (macOS x64)

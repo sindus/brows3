@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - **Grid View Pagination**: Grid view now loads the next page of a large bucket when scrolled to the end, as list view does. Previously it stopped after the first page.
+- **Video Thumbnails On Apple Silicon**: The bundled ffmpeg for macOS ARM64 is now a static build. The previous one was copied from Homebrew and loaded libraries from `/opt/homebrew`, so it could not start on Macs without that installation.
 
 ## [0.5.7] - 2026-10-21
 
