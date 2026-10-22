@@ -1,27 +1,35 @@
 {
-  "version": "0.5.8",
-  "notes": "See https://github.com/sindus/brows3/releases/tag/app-v0.5.8 for release notes.",
-  "pub_date": "2026-10-22T11:23:50Z",
+  "version": "0.5.9",
+  "notes": "See https://github.com/sindus/brows3/releases/tag/app-v0.5.9 for release notes.",
+  "pub_date": "2026-10-22T14:35:38Z",
   "platforms": {
     "darwin-aarch64": {
-      "url": "https://github.com/sindus/brows3/releases/download/app-v0.5.8/Brows3_0.5.8_aarch64.app.tar.gz",
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTUG1NYXMycytNdmVweGxSbWRSOEh2OXQrR1ZKd2FwL3ExRUpsQW4yYno3YjRWUEhxaHFyQ01Odzc2cE00bE5TREhMUVE5RkFRMHZTa1FQUVNhQU5iMjZlR25MeDdGN0E4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyNjY1NjcxCWZpbGU6QnJvd3MzLmFwcC50YXIuZ3oKZzhHaFBCcDM2WXpuM01RQlJJemljYzM3Z2tZQWIwSTNhQWYveXRMcDdrQzRFUlZIMGZ5L0dYdUdvOCt1MFFjNUZsUzZpSU4vODh6QXZibGxnb1pmQ2c9PQo="
+      "url": "https://github.com/sindus/brows3/releases/download/app-v0.5.9/Brows3_0.5.9_aarch64.app.tar.gz",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTUG1NYXMycytNdlJIM0N6S3VlaS95MWNBazZOZVhqMnRnU1JHc0ZKOVhGTXYvUVh0ZnlCRHU3NDBraEM2WlI5bmFNb0RDVnlia0wwN1J6RGc2aUV0bHpQVUVvQ2FjL1FvPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyNjc5NTU4CWZpbGU6QnJvd3MzLmFwcC50YXIuZ3oKUEtHOWlSVzNLK0xLcVVoRnFuV25Vc0swbnoxUUlFMkV6ODRZeVphSjZKdExRdkxuTllJb1R2aVcwZE5YTE1YeWR1aUxPSjJzNVZFUXY2ZlFiK1BkQUE9PQo="
     },
     "darwin-x86_64": {
-      "url": "https://github.com/sindus/brows3/releases/download/app-v0.5.8/Brows3_0.5.8_x64.app.tar.gz",
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTUG1NYXMycytNdmJLcFlQTldzU0FZVk9NNitKNGZiQUpidm5GZGFkSU5UaSt0dWFwZUEyVGR5bndrUXZTRHJNalFwVzNoWENjUk5ZM2pJTUgyK1N5OHNpNnM2cUZaZ0FzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyNjY2MDQ5CWZpbGU6QnJvd3MzLmFwcC50YXIuZ3oKdlRuRXA1ZERDVktmN21UUlJyZHozejBHb0RjZ0UvUmtyeGMxc2s5MkUvOFNoVTU4czlqQkFlVVJzSUc0eEtMUFg3ZGZwRjlSZ2FDdnNCSzdSbkZSRFE9PQo="
+      "url": "https://github.com/sindus/brows3/releases/download/app-v0.5.9/Brows3_0.5.9_x64.app.tar.gz",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTUG1NYXMycytNdlNWRVZGeXdudnBKNUJKbGJ6dmZ0MWtwWHdzc2pSWENOQ210MWZibktoMThqT1RJbEVhQTgrbWtmdUVRZVN3aE1CREdjeVRGdXp0ZXE2TEpzTnZxZEFnPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyNjc5MzAzCWZpbGU6QnJvd3MzLmFwcC50YXIuZ3oKTk5zQnlnbGxBNzRQcjNHdlFpSitBRDQ1MmlRQ2xZRE9TMHpodXE0SmluK25BWEYxK3VlRzJ2Y0V6Sm1HSTFNRXVSaW15ZllkVTl5REp6aS9FQ00zRHc9PQo="
     },
     "linux-x86_64": {
-      "url": "https://github.com/sindus/brows3/releases/download/app-v0.5.8/Brows3_0.5.8_amd64.AppImage",
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTUG1NYXMycytNdlNwTklsUXdtNGk3dEtSWWJCYkczSnNHdlBUenVXN3loM2xPWjBqZ0k2VG9lT1VON1FHL2NCOFpoWEsxQTdBRThuWmZNSVM2QjlQMDF3ZWp2bXFDNWdVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyNjY4MTg5CWZpbGU6QnJvd3MzXzAuNS44X2FtZDY0LkFwcEltYWdlCm1Va3U3UXN1R0Y4TkRtWER0Z0NLVkxUbllkTGZZUW5pbjNXbDlSbk9hSFpoek9MSStCcjZRWDkwWDkxN25vcHRRWDJrTHZUU0F5QThjTVBJVXBEYUFBPT0K"
+      "url": "https://github.com/sindus/brows3/releases/download/app-v0.5.9/Brows3_0.5.9_amd64.AppImage",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTUG1NYXMycytNdldKYzJJZVlKUnhFenNnS1lUNFY1Y1Jrd1BPMm8rZzh0cjJVeWIrK1pkbTYxeGlOaUpwNkc0SC9rVktnaGVETG5JR2loY2NLKzEwcFBsTGtRVHZ0U0FZPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyNjc5MDk1CWZpbGU6QnJvd3MzXzAuNS45X2FtZDY0LkFwcEltYWdlCjBTWEZVb2xFaUlpZlQ3bEJseThQOGdBTmVzOFNJaWtQRkRseVpINUxveHlnMGR5UUpLUmU3NUFZUHAyTnhiOTFzQ1UrUTBaSjdoeVptL1plV3VIZEJRPT0K"
     },
     "linux-aarch64": {
-      "url": "https://github.com/sindus/brows3/releases/download/app-v0.5.8/Brows3_0.5.8_aarch64.AppImage",
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTUG1NYXMycytNdlEvd1liN1VvR0J6MlNhZFNQWFNYanc5V1laYUFHaC9LWnk4NTBNam9HcjE3MGZHTUZKdjM2RzhqNnkrZVJvV0xya0RsRmVOaUd5NUlibk4rRkJLcUFjPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyNjY1ODg5CWZpbGU6QnJvd3MzXzAuNS44X2FhcmNoNjQuQXBwSW1hZ2UKRVRaVllGYlk5SUgrSnN5ZmJZMDM0ZmdBbC9VVTZ3Sms5NTJZSEVYMHN0TjJJdmN1amk4c1RWSFZsLzJoTHJVSmNHS3RlTDhycjV5cGZkSGVZeUFFQVE9PQo="
+      "url": "https://github.com/sindus/brows3/releases/download/app-v0.5.9/Brows3_0.5.9_aarch64.AppImage",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTUG1NYXMycytNdmRLaThydnNaVkFRaXRPQTl4eXlFRW9GMmlzSXJwOUNNU2ZmTDUxWUxjUWpjWGoxc1FJbDFCdFlrOVU2OHZnVnE2Z0xaaXhvQTJBMkVwSlpRc1lPaFFZPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyNjc5MDk0CWZpbGU6QnJvd3MzXzAuNS45X2FhcmNoNjQuQXBwSW1hZ2UKVzEvWm1jWUNSQXQ1QjF5ZElrM3QrTHN1UURyZDdULzFjUkVNTEZWQ3RjbGJYdkVZaklqeTNnRTBuNElhVGI4TEdHQUxOSW90ZmxuMENncWUzU1lOQnc9PQo="
     },
     "windows-x86_64": {
-      "url": "https://github.com/sindus/brows3/releases/download/app-v0.5.8/Brows3_0.5.8_x64-setup.exe",
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTUG1NYXMycytNdlNCaWxheGV0NXhTNnNKTnk0QlE2Ym1abnBRbEhEL3ZFQzcvUGNSSTVCbDRDdkN3SmhseTFINm53NXUxdHgxUU55V1Ewck14ZWpjMWZNcGtKYVp4c1FBPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyNjY2Mzc5CWZpbGU6QnJvd3MzXzAuNS44X3g2NC1zZXR1cC5leGUKaE91V1BPZU85Q1JWTU84R0FwR1lHQ2EwL25CT1BlazIvK2d3ZGVDbDJwQUhkaFBrOXNyNXNZUVA0YkVBNjArSXViOE16UkFxSnQwM2ROckN0MjlOQXc9PQo="
+      "url": "https://github.com/sindus/brows3/releases/download/app-v0.5.9/Brows3_0.5.9_x64-setup.exe",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTUG1NYXMycytNdlk5V3JSVi9QZmV2SGdVdlFCZjQ3NHhLQkMxL1RPRkp5OVBtTzM3ZzUxQTBuUFRxUnFyZGJpTWgySVRXV2J6d2pzQWRsZlNFL1RxQUNTdWUwRnVIbVFNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyNjc5NjU5CWZpbGU6QnJvd3MzXzAuNS45X3g2NC1zZXR1cC5leGUKK3F4Q0pPaTBCbkdVTXN6Q2lFTzcvM05sN0xrWGtxa2lLNm9GaWo1MmlVbGJXaEw5dFJTTGdnbzhRM1BWOTh4V1pGOUMxNVdmOVVxaWFBOFFIZkQxQ1E9PQo="
+    },
+    "linux-x86_64-deb": {
+      "url": "https://github.com/sindus/brows3/releases/download/app-v0.5.9/Brows3_0.5.9_amd64.deb",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTUG1NYXMycytNdmZwSDVpNi9xY1BuMllrMkVScy9SR1lZUmxHZGFtVFp0ZHV3bzU4S3N2Ujc3RGkyZW5pak8rcE5NZDQ4QUgwRk1pWjB3WkgzWCtHVk14Y1FVTXVSUXdrPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyNjc5MDk1CWZpbGU6QnJvd3MzXzAuNS45X2FtZDY0LmRlYgoxZkxzajhEaTBlY1dsYWtJNHc5MWNuWFJ4QWM2V09NVjFLMnlmOTEyNEFRc3FlMjhkaWhZSE4vbDBaaWhRSVA1UnZaZGV5TVNTbWxiMG9rZjZobkVEdz09Cg=="
+    },
+    "linux-aarch64-deb": {
+      "url": "https://github.com/sindus/brows3/releases/download/app-v0.5.9/Brows3_0.5.9_arm64.deb",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVTUG1NYXMycytNdmMzZEwyWjNodDFXQnMrdk4rYUcvY1YybE9ycmwzbC9wNEs3RzJ3ejZ1a0RtL3dYdzBGazFMOGltVmlJNXgvNG9tby9tU3ZxV2VZMEVNY0RGL2d6MUFNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyNjc5MDk0CWZpbGU6QnJvd3MzXzAuNS45X2FybTY0LmRlYgo3NE4xNnY0NWpIdEJPeldYRnVJb0hhSFNuQUNqcUZYejRLY21EODNldS8rc2NzOEE4NUIvZmlqRmlDSWlEbkIwTXNoQ2NwUmVWazFFcm84dnYyNFBCdz09Cg=="
     }
   }
 }
