@@ -221,12 +221,17 @@ jobs:
       - name: install frontend dependencies
         run: pnpm install --frozen-lockfile
 
+      # Linux and Windows use BtbN's LGPL builds of FFmpeg 9.0.2, the version
+      # bundled on macOS. They are pinned to a month-end autobuild (kept by
+      # BtbN) and verified against the SHA-256 digests GitHub publishes.
       - name: Download ffmpeg sidecar (Linux x64)
         if: matrix.platform == 'ubuntu-22.04'
         run: |
           mkdir -p src-tauri/binaries
-          curl -fL "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-lgpl.tar.xz" \
-            | tar xJ --wildcards --strip-components=2 -C src-tauri/binaries/ '*/bin/ffmpeg'
+          curl -fL --retry 3 --connect-timeout 30 --max-time 300 \
+            "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-10-31-12-59/ffmpeg-n9.0.2-39-g7adfbe40dc-linux64-lgpl-9.0.tar.xz" -o ffmpeg-linux.tar.xz
+          echo "6046d6731b26f58887e953561551d254a6eec9fbca4100dfeab56e19af8328d5  ffmpeg-linux.tar.xz" | sha256sum -c -
+          tar xJf ffmpeg-linux.tar.xz --wildcards --strip-components=2 -C src-tauri/binaries/ '*/bin/ffmpeg'
           mv src-tauri/binaries/ffmpeg src-tauri/binaries/brows3-ffmpeg-x86_64-unknown-linux-gnu
           chmod +x src-tauri/binaries/brows3-ffmpeg-x86_64-unknown-linux-gnu
 
@@ -234,8 +239,10 @@ jobs:
         if: matrix.platform == 'ubuntu-22.04-arm'
         run: |
           mkdir -p src-tauri/binaries
-          curl -fL "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linuxarm64-lgpl.tar.xz" \
-            | tar xJ --wildcards --strip-components=2 -C src-tauri/binaries/ '*/bin/ffmpeg'
+          curl -fL --retry 3 --connect-timeout 30 --max-time 300 \
+            "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-10-31-12-59/ffmpeg-n9.0.2-39-g7adfbe40dc-linuxarm64-lgpl-9.0.tar.xz" -o ffmpeg-linux.tar.xz
+          echo "3d1f66827a73ce5a446312bc4924234dc1515726d3743e2df35c0177e1f82128  ffmpeg-linux.tar.xz" | sha256sum -c -
+          tar xJf ffmpeg-linux.tar.xz --wildcards --strip-components=2 -C src-tauri/binaries/ '*/bin/ffmpeg'
           mv src-tauri/binaries/ffmpeg src-tauri/binaries/brows3-ffmpeg-aarch64-unknown-linux-gnu
           chmod +x src-tauri/binaries/brows3-ffmpeg-aarch64-unknown-linux-gnu
 
@@ -269,8 +276,10 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path "src-tauri/binaries" | Out-Null
-          $url = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-lgpl.zip"
+          $url = "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-10-31-12-59/ffmpeg-n9.0.2-39-g7adfbe40dc-win64-lgpl-9.0.zip"
           Invoke-WebRequest -Uri $url -OutFile ffmpeg-win.zip
+          $hash = (Get-FileHash ffmpeg-win.zip -Algorithm SHA256).Hash.ToLower()
+          if ($hash -ne "9d37c564e0d01c18cde184a079fa6ef04d7d2783ada41da81d04165cc8f1a650") { throw "ffmpeg-win.zip checksum mismatch: $hash" }
           Expand-Archive -Path ffmpeg-win.zip -DestinationPath ffmpeg-win-tmp -Force
           $exe = Get-ChildItem -Recurse ffmpeg-win-tmp -Filter "ffmpeg.exe" | Select-Object -First 1
           Copy-Item $exe.FullName "src-tauri/binaries/brows3-ffmpeg-x86_64-pc-windows-msvc.exe"
@@ -402,6 +411,8 @@ jobs:
           PORTABLE_DIR="src-tauri/target/release/bundle/portable/Brows3_${RELEASE_VERSION}_x64-portable"
           mkdir -p "$PORTABLE_DIR"
           cp src-tauri/target/release/brows3.exe "$PORTABLE_DIR/Brows3.exe"
+          # Video thumbnails need the ffmpeg sidecar next to the executable.
+          cp src-tauri/target/release/brows3-ffmpeg.exe "$PORTABLE_DIR/brows3-ffmpeg.exe"
           touch "$PORTABLE_DIR/brows3.portable"
           7z a "src-tauri/target/release/bundle/portable/Brows3_${RELEASE_VERSION}_x64-portable.zip" "$PORTABLE_DIR"/*
 
