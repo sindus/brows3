@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-11-09
+
+### Changed
+- **Video Previews**: Hover previews now play short clips of real motion instead of five still frames, and are built in the background for the videos on screen, so they are usually ready before the pointer gets there. A spinner shows while one is still being built.
+- **Video Thumbnails**: HDR videos (iPhone, recent Android phones) are tone mapped instead of looking washed out, anamorphic videos keep their real aspect ratio, interlaced videos are deinterlaced, and the poster is the most representative frame near the middle instead of a possibly black or blurred one.
+- **Grid View**: The grid is virtualized and only requests thumbnails for the objects on screen, up to four at a time. Loading the next page no longer resets the thumbnails already shown, and cards can be opened with Enter and selected with Space.
+- **Bundled FFmpeg**: Linux and Windows now ship FFmpeg 9.0.2, like macOS, from a pinned build verified by checksum. See `THIRD_PARTY_NOTICES.md`.
+
+### Fixed
+- **Thumbnails In Other Regions**: Buckets outside the profile's default region now get thumbnails.
+- **Outdated Thumbnails**: Replacing an object refreshes its thumbnail.
+- **Thumbnail Cache Limit**: The limit set in Settings is kept after a restart, and the cache size stays accurate.
+- **Image Thumbnails**: Photos follow their EXIF orientation, transparent images show a checkerboard instead of black, and images stored with a generic content type such as `application/octet-stream` get thumbnails.
+- **Thumbnails In Deep Search**: Search results now show thumbnails.
+- **Stuck Thumbnails**: FFmpeg runs are bounded in time and stop when you leave the folder.
+- **Portable Windows Build**: The portable zip now includes FFmpeg, so it shows video thumbnails.
+- **Console Commands**: Object keys are shell-quoted, so copied commands run as shown. Pagination uses `--continuation-token`, and bucket, policy, ACL and content type actions are listed too.
+- **Install Scripts**: Downloads are verified against the checksums GitHub publishes, the macOS installer no longer depends on `/Volumes/Brows3` being free, and uninstalling on Linux and Windows removes the thumbnail cache.
+
 ## [0.5.9] - 2026-10-22
 
 ### Fixed
