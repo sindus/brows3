@@ -327,6 +327,8 @@ pub fn run() {
             transfer_cmd::set_transfer_concurrency,
             // Thumbnail commands
             thumbnails::start_thumbnail_generation,
+            thumbnails::enqueue_thumbnails,
+            thumbnails::request_video_preview,
             thumbnails::cancel_thumbnail_generation,
             thumbnails::get_cache_info,
             thumbnails::clear_thumbnail_cache,

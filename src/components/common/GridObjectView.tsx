@@ -1,6 +1,6 @@
 'use client';
 
-import { memo, useMemo, useCallback, useEffect, useRef, useState } from 'react';
+import { forwardRef, memo, useMemo, useCallback, useEffect, useRef, useState } from 'react';
 import {
   Box,
   Typography,
@@ -22,31 +22,29 @@ import {
   Archive as ArchiveIcon,
   MoreVert as MoreVertIcon,
 } from '@mui/icons-material';
+import { VirtuosoGrid, type GridComponents, type GridListProps, type ListRange } from 'react-virtuoso';
 import { S3Object } from '@/lib/tauri';
 import { formatSize, getFileExtension } from '@/lib/utils';
+import { getThumbnailKind, THUMBNAIL_IMAGE_EXTENSIONS, THUMBNAIL_VIDEO_EXTENSIONS } from '@/lib/mediaTypes';
+import { useThumbnails } from '@/hooks/useThumbnails';
 import { StyledCheckbox } from './StyledCheckbox';
 
 const CARD_WIDTH = 140;
 const CARD_HEIGHT = 150;
 const THUMB_SIZE = 80;
+const GAP = 12;
+/** Thumbnails are also requested for this many items around the visible range. */
+const PREFETCH_ITEMS = 24;
+const PREVIEW_HOVER_DELAY_MS = 300;
 
 const ICON_SX = { fontSize: THUMB_SIZE * 0.55 };
 
+const IMAGE_ICON = <ImageIcon sx={{ ...ICON_SX, color: '#4CAF50' }} />;
+const VIDEO_ICON = <VideoIcon sx={{ ...ICON_SX, color: '#9C27B0' }} />;
+
 const ICON_MAP: Record<string, React.ReactNode> = {
-  jpg:  <ImageIcon sx={{ ...ICON_SX, color: '#4CAF50' }} />,
-  jpeg: <ImageIcon sx={{ ...ICON_SX, color: '#4CAF50' }} />,
-  png:  <ImageIcon sx={{ ...ICON_SX, color: '#4CAF50' }} />,
-  gif:  <ImageIcon sx={{ ...ICON_SX, color: '#4CAF50' }} />,
-  webp: <ImageIcon sx={{ ...ICON_SX, color: '#4CAF50' }} />,
-  svg:  <ImageIcon sx={{ ...ICON_SX, color: '#4CAF50' }} />,
-  ico:  <ImageIcon sx={{ ...ICON_SX, color: '#4CAF50' }} />,
-  bmp:  <ImageIcon sx={{ ...ICON_SX, color: '#4CAF50' }} />,
-  tiff: <ImageIcon sx={{ ...ICON_SX, color: '#4CAF50' }} />,
-  mp4:  <VideoIcon sx={{ ...ICON_SX, color: '#9C27B0' }} />,
-  webm: <VideoIcon sx={{ ...ICON_SX, color: '#9C27B0' }} />,
-  mov:  <VideoIcon sx={{ ...ICON_SX, color: '#9C27B0' }} />,
-  avi:  <VideoIcon sx={{ ...ICON_SX, color: '#9C27B0' }} />,
-  mkv:  <VideoIcon sx={{ ...ICON_SX, color: '#9C27B0' }} />,
+  ...Object.fromEntries([...THUMBNAIL_IMAGE_EXTENSIONS, 'svg'].map((ext) => [ext, IMAGE_ICON])),
+  ...Object.fromEntries([...THUMBNAIL_VIDEO_EXTENSIONS].map((ext) => [ext, VIDEO_ICON])),
   mp3:  <AudioIcon sx={{ ...ICON_SX, color: '#FF5722' }} />,
   wav:  <AudioIcon sx={{ ...ICON_SX, color: '#FF5722' }} />,
   ogg:  <AudioIcon sx={{ ...ICON_SX, color: '#FF5722' }} />,
@@ -83,6 +81,7 @@ interface GridItem {
   name: string;
   isFolder: boolean;
   size: number;
+  object?: S3Object;
 }
 
 interface Props {
@@ -95,8 +94,18 @@ interface Props {
   onMenuOpen: (event: React.MouseEvent<HTMLElement>, key: string, isFolder: boolean) => void;
   onPreview?: (key: string, size: number) => void;
   onEndReached?: () => void;
-  thumbnails?: Map<string, string>;
-  previews?: Map<string, string>;
+  /** Thumbnails are only generated when a bucket is given. */
+  bucketName?: string;
+  bucketRegion?: string;
+  /** Identity of the folder view (profile, bucket, prefix): thumbnails reset when it changes. */
+  scopeKey?: string;
+}
+
+interface CardActions {
+  open: (item: GridItem) => void;
+  select: (key: string, checked: boolean) => void;
+  menu: (event: React.MouseEvent<HTMLElement>, key: string, isFolder: boolean) => void;
+  wantPreview: (object: S3Object) => void;
 }
 
 const GridCard = memo(function GridCard({
@@ -104,32 +113,48 @@ const GridCard = memo(function GridCard({
   isSelected,
   thumbnail,
   preview,
-  onSelect,
-  onNavigate,
-  onMenuOpen,
-  onPreview,
+  previewLoading,
+  actions,
 }: {
   item: GridItem;
   isSelected: boolean;
   thumbnail?: string;
   preview?: string;
-  onSelect: (key: string, checked: boolean) => void;
-  onNavigate: (prefix: string) => void;
-  onMenuOpen: (event: React.MouseEvent<HTMLElement>, key: string, isFolder: boolean) => void;
-  onPreview?: (key: string, size: number) => void;
+  previewLoading: boolean;
+  actions: CardActions;
 }) {
   const [hovered, setHovered] = useState(false);
+  const isVideo = !item.isFolder && getThumbnailKind(item.key) === 'video';
 
-  const handleClick = useCallback(() => {
-    if (item.isFolder) {
-      onNavigate(item.key);
-    } else if (onPreview) {
-      onPreview(item.key, item.size);
+  // Build the animated preview only for videos the user lingers on.
+  useEffect(() => {
+    if (!hovered || !isVideo || !thumbnail || preview || !item.object) return;
+    const object = item.object;
+    const timer = setTimeout(() => actions.wantPreview(object), PREVIEW_HOVER_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [hovered, isVideo, thumbnail, preview, item.object, actions]);
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
+    if (event.target !== event.currentTarget) return;
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      actions.open(item);
+    } else if (event.key === ' ') {
+      event.preventDefault();
+      actions.select(item.key, !isSelected);
     }
-  }, [item, onNavigate, onPreview]);
+  };
+
+  const image = hovered && preview ? preview : thumbnail;
 
   return (
     <Box
+      role="group"
+      tabIndex={0}
+      aria-label={item.name}
+      onKeyDown={handleKeyDown}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       sx={{
         width: CARD_WIDTH,
         height: CARD_HEIGHT,
@@ -143,18 +168,22 @@ const GridCard = memo(function GridCard({
         display: 'flex',
         flexDirection: 'column',
         transition: 'border-color 0.15s, box-shadow 0.15s',
-        '&:hover': {
+        outline: 'none',
+        '&:hover, &:focus-visible': {
           borderColor: 'primary.light',
           boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
-          '& .card-overlay': { opacity: 1 },
         },
+        '&:focus-visible': { borderColor: 'primary.main' },
+        '&:hover .card-overlay, &:focus-within .card-overlay': { opacity: 1 },
       }}
-      onClick={handleClick}
+      onClick={() => actions.open(item)}
     >
       {/* Thumbnail / Icon area */}
       <Box
         sx={{
+          position: 'relative',
           flex: 1,
+          minHeight: 0,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -162,21 +191,38 @@ const GridCard = memo(function GridCard({
           overflow: 'hidden',
         }}
       >
-        {thumbnail || preview ? (
+        {image ? (
           <Box
             component="img"
-            src={hovered && preview ? preview : thumbnail}
+            src={image}
             alt={item.name}
-            onMouseEnter={() => preview && setHovered(true)}
-            onMouseLeave={() => setHovered(false)}
-            sx={{
-              width: '100%',
-              height: '100%',
-              objectFit: 'contain',
-            }}
+            loading="lazy"
+            decoding="async"
+            draggable={false}
+            sx={{ width: '100%', height: '100%', objectFit: 'contain' }}
           />
         ) : (
           getIcon(item.name, item.isFolder)
+        )}
+        {hovered && previewLoading && !preview && (
+          <Box
+            sx={{
+              position: 'absolute',
+              inset: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              bgcolor: 'rgba(0, 0, 0, 0.45)',
+              pointerEvents: 'none',
+            }}
+          >
+            <CircularProgress
+              size={28}
+              thickness={5}
+              aria-label={`Loading preview of ${item.name}`}
+              sx={{ color: 'common.white' }}
+            />
+          </Box>
         )}
       </Box>
 
@@ -225,21 +271,25 @@ const GridCard = memo(function GridCard({
       >
         <Box
           sx={{ pointerEvents: 'auto' }}
-          onClick={(e) => { e.stopPropagation(); onSelect(item.key, !isSelected); }}
+          onClick={(e) => { e.stopPropagation(); actions.select(item.key, !isSelected); }}
         >
           <Box sx={{ p: 0.25 }}>
             <StyledCheckbox
               aria-label={`Select ${item.key}`}
               checked={isSelected}
-              onChange={(e) => { e.stopPropagation(); onSelect(item.key, e.target.checked); }}
+              onChange={(e) => { e.stopPropagation(); actions.select(item.key, e.target.checked); }}
             />
           </Box>
         </Box>
         <Box
           sx={{ pointerEvents: 'auto' }}
-          onClick={(e) => { e.stopPropagation(); onMenuOpen(e, item.key, item.isFolder); }}
+          onClick={(e) => { e.stopPropagation(); actions.menu(e, item.key, item.isFolder); }}
         >
-          <IconButton size="small" sx={{ p: 0.25, bgcolor: 'background.paper', opacity: 0.85 }}>
+          <IconButton
+            size="small"
+            aria-label={`Actions for ${item.name}`}
+            sx={{ p: 0.25, bgcolor: 'background.paper', opacity: 0.85 }}
+          >
             <MoreVertIcon sx={{ fontSize: 14 }} />
           </IconButton>
         </Box>
@@ -247,6 +297,31 @@ const GridCard = memo(function GridCard({
     </Box>
   );
 });
+
+const GridList: GridComponents['List'] = forwardRef<HTMLDivElement, GridListProps>(function GridList(
+  { style, children, ...props },
+  ref,
+) {
+  return (
+    <div
+      ref={ref}
+      {...props}
+      style={{
+        display: 'grid',
+        gridTemplateColumns: `repeat(auto-fill, minmax(${CARD_WIDTH}px, 1fr))`,
+        gap: GAP,
+        paddingLeft: GAP,
+        paddingRight: GAP,
+        // Virtuoso sets the vertical padding that stands for off-screen rows.
+        ...style,
+      }}
+    >
+      {children}
+    </div>
+  );
+});
+
+const GRID_COMPONENTS: GridComponents = { List: GridList };
 
 export const GridObjectView = memo(function GridObjectView({
   folders = [],
@@ -258,11 +333,36 @@ export const GridObjectView = memo(function GridObjectView({
   onMenuOpen,
   onPreview,
   onEndReached,
-  thumbnails,
-  previews,
+  bucketName,
+  bucketRegion,
+  scopeKey = '',
 }: Props) {
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const [scrollElement, setScrollElement] = useState<HTMLDivElement | null>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
+
+  const { thumbnails, previews, loadingPreviews, requestThumbnails, requestPreview } = useThumbnails(
+    bucketName ?? '',
+    bucketRegion,
+    scopeKey,
+  );
+
+  // The page recreates its handlers on every render. Cards get stable actions
+  // that call the latest handlers, so a thumbnail only re-renders its own card.
+  const handlers = useRef({ onNavigate, onSelect, onMenuOpen, onPreview, requestPreview });
+  useEffect(() => {
+    handlers.current = { onNavigate, onSelect, onMenuOpen, onPreview, requestPreview };
+  });
+  const actions = useMemo<CardActions>(() => ({
+    open: (item) => {
+      if (item.isFolder) handlers.current.onNavigate(item.key);
+      else handlers.current.onPreview?.(item.key, item.size);
+    },
+    select: (key, checked) => handlers.current.onSelect(key, checked),
+    menu: (event, key, isFolder) => handlers.current.onMenuOpen(event, key, isFolder),
+    wantPreview: (object) => handlers.current.requestPreview(object),
+  }), []);
+
   const items = useMemo<GridItem[]>(() => {
     const result: GridItem[] = [];
     for (const prefix of folders) {
@@ -271,10 +371,35 @@ export const GridObjectView = memo(function GridObjectView({
     }
     for (const obj of objects) {
       const parts = obj.key.split('/');
-      result.push({ key: obj.key, name: parts[parts.length - 1] || obj.key, isFolder: false, size: obj.size });
+      result.push({ key: obj.key, name: parts[parts.length - 1] || obj.key, isFolder: false, size: obj.size, object: obj });
     }
     return result;
   }, [folders, objects]);
+
+  const setScrollRef = useCallback((element: HTMLDivElement | null) => {
+    scrollRef.current = element;
+    setScrollElement(element);
+  }, []);
+
+  // Request thumbnails for what is on screen, plus a margin.
+  const lastRange = useRef<ListRange | null>(null);
+  const handleRangeChanged = useCallback((range: ListRange) => {
+    lastRange.current = range;
+    if (!bucketName) return;
+    const start = Math.max(0, range.startIndex - PREFETCH_ITEMS);
+    const end = Math.min(items.length, range.endIndex + PREFETCH_ITEMS + 1);
+    const visible: S3Object[] = [];
+    for (let index = start; index < end; index += 1) {
+      const object = items[index]?.object;
+      if (object) visible.push(object);
+    }
+    requestThumbnails(visible);
+  }, [bucketName, items, requestThumbnails]);
+
+  // New items (next page, search results) may already be on screen.
+  useEffect(() => {
+    if (lastRange.current) handleRangeChanged(lastRange.current);
+  }, [handleRangeChanged]);
 
   // Ask for the next page while the end-of-grid sentinel is (nearly) visible.
   // Observing again after every change re-checks it, so a short first page
@@ -294,7 +419,7 @@ export const GridObjectView = memo(function GridObjectView({
 
   return (
     <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', border: 1, borderColor: 'divider', borderRadius: 1, overflow: 'hidden' }}>
-      <Box ref={scrollRef} sx={{ flex: 1, overflow: 'auto' }}>
+      <Box ref={setScrollRef} sx={{ flex: 1, overflow: 'auto' }}>
         {isLoading ? (
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 200, gap: 2 }}>
             <CircularProgress size={32} />
@@ -306,28 +431,32 @@ export const GridObjectView = memo(function GridObjectView({
           </Box>
         ) : (
           <>
-            <Box
-              sx={{
-                display: 'grid',
-                gridTemplateColumns: `repeat(auto-fill, minmax(${CARD_WIDTH}px, 1fr))`,
-                gap: 1.5,
-                p: 1.5,
-              }}
-            >
-              {items.map((item) => (
-                <GridCard
-                  key={item.key}
-                  item={item}
-                  isSelected={selectedKeys.has(item.key)}
-                  thumbnail={thumbnails?.get(item.key)}
-                  preview={previews?.get(item.key)}
-                  onSelect={onSelect}
-                  onNavigate={onNavigate}
-                  onMenuOpen={onMenuOpen}
-                  onPreview={onPreview}
-                />
-              ))}
-            </Box>
+            <Box sx={{ height: GAP }} />
+            {scrollElement && (
+              <VirtuosoGrid
+                customScrollParent={scrollElement}
+                totalCount={items.length}
+                components={GRID_COMPONENTS}
+                computeItemKey={(index) => items[index]?.key ?? index}
+                increaseViewportBy={CARD_HEIGHT * 2}
+                rangeChanged={handleRangeChanged}
+                itemContent={(index) => {
+                  const item = items[index];
+                  if (!item) return null;
+                  return (
+                    <GridCard
+                      item={item}
+                      isSelected={selectedKeys.has(item.key)}
+                      thumbnail={thumbnails.get(item.key)}
+                      preview={previews.get(item.key)}
+                      previewLoading={loadingPreviews.has(item.key)}
+                      actions={actions}
+                    />
+                  );
+                }}
+              />
+            )}
+            <Box sx={{ height: GAP }} />
             <Box ref={sentinelRef} aria-hidden sx={{ height: 1 }} />
           </>
         )}

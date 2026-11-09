@@ -161,11 +161,12 @@ test('grid view loads the next page when scrolled to the end', async ({ page, ba
   backend.pageSize = 40;
   await page.goto(bucketUrl);
   await page.getByRole('button', { name: 'Switch to Grid View', exact: true }).click();
-  for (const lastOfPage of [39, 79]) {
-    await expect(page.getByText(name(lastOfPage), { exact: true })).toBeAttached();
-    await page.getByText(name(lastOfPage), { exact: true }).scrollIntoViewIfNeeded();
-  }
-  await expect(page.getByText(name(119), { exact: true })).toBeAttached();
+  // The grid is virtualized: scroll it until the last object is rendered.
+  await page.getByRole('group', { name: 'nested', exact: true }).hover();
+  await expect(async () => {
+    await page.mouse.wheel(0, 3000);
+    await expect(page.getByText(name(119), { exact: true })).toBeAttached({ timeout: 250 });
+  }).toPass();
   expect(backend.calls.filter(call => call.command === 'list_objects').map(call => call.args.continuationToken)).toEqual([null, 'offset-40', 'offset-80']);
 });
 

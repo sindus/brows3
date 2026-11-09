@@ -448,13 +448,38 @@ export interface CacheInfo {
   entry_count: number;
 }
 
+/** An object the grid wants a thumbnail for. */
+export interface ThumbnailItem {
+  key: string;
+  last_modified: string | null;
+  size: number;
+}
+
+/** Payload of the `thumbnail_ready` and `thumbnail_preview_ready` events. */
+export interface ThumbnailReadyPayload {
+  generation_id: number;
+  key: string;
+  /** Absolute path of the cached file, to pass to `convertFileSrc`. */
+  path: string;
+}
+
 export const thumbnailApi = {
-  async startGeneration(bucketName: string, bucketRegion: string | undefined, keys: string[]): Promise<void> {
-    return invoke<void>('start_thumbnail_generation', { bucket: bucketName, bucketRegion, keys });
+  /** Starts a generation for a bucket and returns its id. */
+  async startGeneration(bucketName: string, bucketRegion: string | undefined): Promise<number> {
+    return invoke<number>('start_thumbnail_generation', { bucket: bucketName, bucketRegion });
   },
 
-  async cancelGeneration(): Promise<void> {
-    return invoke<void>('cancel_thumbnail_generation');
+  async enqueue(generationId: number, items: ThumbnailItem[]): Promise<void> {
+    return invoke<void>('enqueue_thumbnails', { generationId, items });
+  },
+
+  /** Builds the animated hover preview of a video. */
+  async requestPreview(generationId: number, item: ThumbnailItem): Promise<void> {
+    return invoke<void>('request_video_preview', { generationId, item });
+  },
+
+  async cancelGeneration(generationId?: number): Promise<void> {
+    return invoke<void>('cancel_thumbnail_generation', { generationId: generationId ?? null });
   },
 
   async getCacheInfo(): Promise<CacheInfo> {

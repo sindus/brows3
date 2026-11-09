@@ -54,7 +54,6 @@ import {
   Lock as LockIcon,
 } from '@mui/icons-material';
 import { useObjects } from '@/hooks/useObjects';
-import { useThumbnails } from '@/hooks/useThumbnails';
 import { ConsolePanel } from '@/components/common/ConsolePanel';
 import { useConsoleStore } from '@/store/consoleStore';
 import { operationsApi, transferApi, objectApi, S3Object, copyToClipboard } from '@/lib/tauri';
@@ -99,12 +98,6 @@ function BucketContent() {
 
   const { data, isLoading, error: initialError, refresh, loadMore, hasMore, isLoadingMore } = useObjects(bucketName || '', bucketRegion, prefix, sortField, sortDirection);
   const { viewMode, setViewMode } = useAppStore();
-  const { thumbnails, previews } = useThumbnails(
-    bucketName || '',
-    bucketRegion,
-    data?.objects || [],
-    viewMode === 'grid',
-  );
   const addJob = useTransferStore(state => state.addJob);
   const activeProfileId = useProfileStore(state => state.activeProfileId);
   const viewKey = JSON.stringify([activeProfileId, bucketName, bucketRegion, prefix]);
@@ -1324,8 +1317,9 @@ function BucketContent() {
             setPreviewOpen(true);
           }}
           onEndReached={!isDeepSearch && hasMore ? loadMore : undefined}
-          thumbnails={thumbnails}
-          previews={previews}
+          bucketName={bucketName || undefined}
+          bucketRegion={bucketRegion}
+          scopeKey={viewKey}
         />
       )}
       {viewMode === 'list' && <VirtualizedObjectTable

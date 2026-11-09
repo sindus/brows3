@@ -26,9 +26,16 @@ const baseProps = {
 };
 const latestObserver = () => FakeIntersectionObserver.instances[FakeIntersectionObserver.instances.length - 1];
 
+class FakeResizeObserver {
+  observe = vi.fn();
+  unobserve = vi.fn();
+  disconnect = vi.fn();
+}
+
 beforeEach(() => {
   FakeIntersectionObserver.instances = [];
   vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
+  vi.stubGlobal('ResizeObserver', FakeResizeObserver);
 });
 afterEach(() => vi.unstubAllGlobals());
 

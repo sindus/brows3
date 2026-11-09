@@ -378,7 +378,7 @@ export default function SettingsPage() {
               primary="Cache Usage"
               secondary={
                 cacheInfo
-                  ? `${formatSize(cacheInfo.total_size_bytes)} used · ${cacheInfo.entry_count} thumbnails`
+                  ? `${formatSize(cacheInfo.total_size_bytes)} used · ${cacheInfo.entry_count} cached files`
                   : 'Loading...'
               }
             />
