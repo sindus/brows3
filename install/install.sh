@@ -23,6 +23,29 @@ fail() {
   exit 1
 }
 
+# SHA-256 that GitHub publishes for an asset ("digest" precedes its download URL).
+get_asset_sha256() {
+  printf '%s\n' "$RELEASE_JSON" | awk -v url="$1" '
+    /"digest":/ { digest = $0; sub(/.*"digest": *"?/, "", digest); sub(/[",].*/, "", digest) }
+    index($0, "\"browser_download_url\": \"" url "\"") { print digest; exit }' \
+    | sed -n 's/^sha256://p'
+}
+
+verify_download() {
+  expected=$(get_asset_sha256 "$2")
+  if [ -z "$expected" ]; then
+    echo "Warning: no checksum published for this file; skipping verification." >&2
+    return 0
+  fi
+  if command -v sha256sum >/dev/null 2>&1; then
+    actual=$(sha256sum "$1" | cut -d ' ' -f 1)
+  else
+    actual=$(shasum -a 256 "$1" | cut -d ' ' -f 1)
+  fi
+  [ "$actual" = "$expected" ] || fail "checksum mismatch for $(basename "$2")."
+  echo "Checksum verified."
+}
+
 OS="$(uname -s)"
 ARCH="$(uname -m)"
 
@@ -39,13 +62,19 @@ case "$OS" in
     trap 'rm -rf "$TMP_DIR"' EXIT
     DMG_PATH="${TMP_DIR}/Brows3.dmg"
 
+    MOUNT_POINT="${TMP_DIR}/mnt"
+
     echo "Downloading ${URL}"
     curl -fL -o "$DMG_PATH" "$URL"
+    verify_download "$DMG_PATH" "$URL"
 
     echo "Installing to /Applications..."
-    hdiutil attach "$DMG_PATH" -nobrowse -quiet
-    cp -R "/Volumes/Brows3/Brows3.app" /Applications/
-    hdiutil detach "/Volumes/Brows3" -quiet
+    # A private mount point avoids clashing with an already mounted "Brows3" volume.
+    mkdir -p "$MOUNT_POINT"
+    hdiutil attach "$DMG_PATH" -nobrowse -quiet -mountpoint "$MOUNT_POINT"
+    cp -R "${MOUNT_POINT}/Brows3.app" /Applications/
+    hdiutil detach "$MOUNT_POINT" -quiet
+    # The app is not notarized: clear the quarantine flag so Gatekeeper lets it start.
     xattr -cr /Applications/Brows3.app || true
 
     echo "Brows3 installed to /Applications/Brows3.app"
@@ -66,6 +95,7 @@ case "$OS" in
 
       echo "Downloading ${URL}"
       curl -fL -o "$DEB_PATH" "$URL"
+      verify_download "$DEB_PATH" "$URL"
 
       echo "Installing via apt (you may be asked for your password)..."
       sudo apt install -y "$DEB_PATH"
@@ -83,7 +113,9 @@ case "$OS" in
       DEST="$HOME/.local/bin/Brows3.AppImage"
 
       echo "Downloading ${URL}"
-      curl -fL -o "$DEST" "$URL"
+      curl -fL -o "${DEST}.download" "$URL"
+      verify_download "${DEST}.download" "$URL"
+      mv "${DEST}.download" "$DEST"
       chmod +x "$DEST"
 
       echo "Brows3 installed to ${DEST}"

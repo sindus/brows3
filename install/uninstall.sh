@@ -29,6 +29,8 @@ case "$OS" in
     else
       fail "no Brows3 installation found via apt or ~/.local/bin/Brows3.AppImage."
     fi
+    # Thumbnail cache (can grow up to the limit set in Settings).
+    rm -rf "${XDG_CACHE_HOME:-$HOME/.cache}/com.brows3"
     ;;
 
   *)

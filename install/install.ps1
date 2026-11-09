@@ -17,6 +17,19 @@ $outPath = Join-Path $env:TEMP 'Brows3-setup.exe'
 Write-Host "Downloading $($asset.browser_download_url)"
 Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $outPath
 
+# GitHub publishes a SHA-256 digest for each release asset.
+if ($asset.digest -and $asset.digest.StartsWith('sha256:')) {
+    $expected = $asset.digest.Substring(7)
+    $actual = (Get-FileHash $outPath -Algorithm SHA256).Hash.ToLower()
+    if ($actual -ne $expected) {
+        Remove-Item $outPath -Force
+        throw "Checksum mismatch for $($asset.name)."
+    }
+    Write-Host "Checksum verified."
+} else {
+    Write-Warning "No checksum published for this file; skipping verification."
+}
+
 Write-Host "Installing Brows3 (silent)..."
 Start-Process -FilePath $outPath -ArgumentList '/S' -Wait
 
