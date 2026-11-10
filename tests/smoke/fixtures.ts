@@ -1,6 +1,6 @@
 import { test as base, expect } from '@playwright/test';
 import packageJson from '../../package.json';
-import type { Profile, S3Object, TransferJob } from '../../src/lib/tauri';
+import type { Profile, S3Object, TransferJob, SavedJob, SavedJobConfig } from '../../src/lib/tauri';
 
 type Args = Record<string, unknown>;
 const object = (key: string, size = 20): S3Object => ({ key, size, last_modified: '2026-01-01T00:00:00Z', storage_class: 'STANDARD' });
@@ -20,11 +20,14 @@ export class DesktopBackend {
   calls: { command: string; args: Args }[] = [];
   unexpected: string[] = [];
   transfers: TransferJob[] = [];
+  savedJobs: SavedJob[] = [];
+  jobError = '';
   content = 'original text';
   contentType = 'text/plain';
   etag = '"v1"';
   conflict = false;
   objects = [object('notes.txt'), object('sound.wav', 1644), object('nested/match.txt')];
+  folders = ['nested/'];
 
   async invoke(command: string, args: Args = {}): Promise<unknown> {
     this.calls.push({ command, args });
@@ -33,10 +36,38 @@ export class DesktopBackend {
       case 'plugin:path|resolve_directory': return '/virtual/config';
       case 'get_log_file_info': return { log_file_path: '/virtual/logs/brows3.log', log_dir_path: '/virtual/logs', panic_log_path: '/virtual/logs/panic.log', panic_log_exists: false };
       case 'list_profiles': return this.profiles;
+      case 'get_profile': return this.profiles.find(p => p.id === args.id);
+      case 'discover_local_profiles': return [];
+      case 'check_aws_environment': return { has_access_key: true, has_secret_key: true, has_session_token: false, region: 'us-east-1' };
+      case 'update_profile': { const p = args.profile as Profile; this.profiles = this.profiles.map(v => v.id === args.id ? p : v); return p; }
+      case 'get_public_urls': {
+        const p = this.profiles.find(p => p.id === args.expectedProfileId);
+        if (!p || p.id !== this.activeProfile) throw new Error('Profile changed');
+        const settings = p.public_urls;
+        return (args.keys as string[]).map(key => {
+          const override = (args.overrides as Record<string,string> | undefined)?.[key];
+          if (override) return override;
+          const root = settings?.bucket_overrides[String(args.bucket)];
+          const base = root || settings?.base_url || 'https://s3.us-east-1.amazonaws.com';
+          const includeBucket = !root && (!settings?.base_url || settings.include_bucket);
+          return `${base.replace(/\/$/, '')}/${includeBucket ? `${args.bucket}/` : ''}${key.split('/').map(encodeURIComponent).join('/')}`;
+        });
+      }
+      case 'check_public_url': return 'Anonymous HEAD request succeeded. Access may differ for other users or change later.';
+      case 'queue_url_imports': {
+        if (args.expectedProfileId !== this.activeProfile) throw new Error('Profile changed');
+        const entries = args.entries as { path: string; max_bytes: number; max_attempts: number; sha256: string | null }[];
+        for (const entry of entries) {
+          this.transfers.push({ id: `url-${this.transfers.length}`, profile_id: this.activeProfile, transfer_type: 'Upload', bucket: String(args.bucket), bucket_region: String(args.region), key: `${args.prefix}${entry.path}`, local_path: '', total_bytes: 4096, processed_bytes: 1024, bytes_per_second: 1024, status: 'InProgress', phase: 'Fetching source', url_import: { max_bytes: entry.max_bytes, max_attempts: entry.max_attempts, sha256: entry.sha256, expected_etag: null }, created_at: Date.now() });
+        }
+        return entries.length;
+      }
+      case 'remove_transfer': { const previous = this.transfers.length; this.transfers = this.transfers.filter(job => job.id !== args.jobId); return this.transfers.length < previous; }
       case 'get_active_profile': return this.profiles.find(profile => profile.id === this.activeProfile);
       case 'set_active_profile': this.activeProfile = String(args.id); return null;
       case 'refresh_s3_client':
       case 'set_transfer_concurrency':
+      case 'set_transfer_bandwidth':
       case 'plugin:event|emit':
       case 'plugin:clipboard-manager|write_text': return null;
       case 'plugin:updater|check': return null;
@@ -58,6 +89,7 @@ export class DesktopBackend {
         this.bucketPolicy = args.policy as string | null;
         return null;
       case 'get_bucket_region': return 'us-east-1';
+      case 'put_object': this.folders.push(String(args.key)); return null;
       case 'list_objects': {
         if (this.emptyListingPages > 0) {
           this.emptyListingPages -= 1;
@@ -66,13 +98,14 @@ export class DesktopBackend {
         const prefix = String(args.prefix || '');
         const objects = this.activeProfile === 'a' ? this.objects : [object('production.txt')];
         const visible = objects.filter(item => item.key.startsWith(prefix) && !item.key.slice(prefix.length).includes('/'));
+        const folders = this.folders.filter(folder => folder.startsWith(prefix) && folder !== prefix && !folder.slice(prefix.length, -1).includes('/'));
         if (this.pageSize > 0) {
           const start = args.continuationToken ? Number(String(args.continuationToken).replace('offset-', '')) : 0;
           const end = start + this.pageSize;
           const more = end < visible.length;
-          return { objects: visible.slice(start, end), common_prefixes: prefix || start ? [] : ['nested/'], next_continuation_token: more ? `offset-${end}` : null, is_truncated: more, prefix, bucket_region: 'us-east-1' };
+          return { objects: visible.slice(start, end), common_prefixes: start ? [] : folders, next_continuation_token: more ? `offset-${end}` : null, is_truncated: more, prefix, bucket_region: 'us-east-1' };
         }
-        return { objects: visible, common_prefixes: prefix ? [] : ['nested/'], next_continuation_token: null, is_truncated: false, prefix, bucket_region: 'us-east-1' };
+        return { objects: visible, common_prefixes: folders, next_continuation_token: null, is_truncated: false, prefix, bucket_region: 'us-east-1' };
       }
       case 'search_objects': return { objects: this.objects.filter(item => item.key.includes(String(args.query))), scanned_objects: this.objects.length, is_truncated: false };
       case 'get_object_metadata': return { key: args.key, size: this.content.length, content_type: String(args.key).endsWith('.wav') ? 'audio/wav' : String(args.key).endsWith('.svg') ? 'image/svg+xml' : this.contentType, e_tag: this.etag, last_modified: null, storage_class: null, user_metadata: {} };
@@ -84,6 +117,9 @@ export class DesktopBackend {
         this.etag = '"v2"';
         return this.etag;
       case 'get_presigned_url': return `https://media.brows3.test/${args.key}`;
+      case 'copy_between_profiles':
+        if (args.expectedProfileId !== this.activeProfile) throw new Error('The destination profile changed.');
+        return (args.items as unknown[]).length;
       case 'copy_object':
       case 'move_object': {
         if (args.expectedProfileId !== this.activeProfile) throw new Error('The active profile changed.');
@@ -99,6 +135,53 @@ export class DesktopBackend {
       case 'clear_thumbnail_cache':
       case 'set_cache_limit': return null;
       case 'list_transfers': return this.transfers;
+      case 'list_saved_jobs': return this.savedJobs;
+      case 'save_sync_job': {
+        if (this.jobError) throw new Error(this.jobError);
+        if (!args.approved) throw new Error('Approval required');
+        const config = args.config as SavedJobConfig;
+        const job: SavedJob = { id: `saved-${this.savedJobs.length}`, config, enabled: !!config.interval_minutes, next_run: config.interval_minutes ? Date.now() / 1000 + config.interval_minutes * 60 : null, last_run: null };
+        this.savedJobs.push(job); return job;
+      }
+      case 'run_saved_job': {
+        if (this.jobError) throw new Error(this.jobError);
+        const job = this.savedJobs.find(job => job.id === args.id)!;
+        job.last_run = { id: 'run', status: 'Preparing', started_at: Date.now() / 1000, finished_at: null, message: 'Scanning and comparing fresh content.', transfer_ids: [], cancel_requested: false };
+        job.next_run = null; return null;
+      }
+      case 'cancel_saved_job': {
+        const job = this.savedJobs.find(job => job.id === args.id)!;
+        job.enabled = false; job.next_run = null;
+        job.last_run = { ...job.last_run!, finished_at: Date.now() / 1000, status: 'Cancelled', message: 'Schedule paused.', cancel_requested: true };
+        return null;
+      }
+      case 'set_saved_job_enabled': {
+        const job = this.savedJobs.find(job => job.id === args.id)!;
+        job.enabled = !!args.enabled; job.next_run = job.enabled ? Date.now() / 1000 + 900 : null; return null;
+      }
+      case 'delete_saved_job':
+        if (this.jobError) throw new Error(this.jobError);
+        this.savedJobs = this.savedJobs.filter(job => job.id !== args.id); return null;
+      case 'list_object_versions': return {
+        versioning: 'Enabled', next: null, versions: [
+          { version_id: 'current-delete-marker', is_latest: true, is_delete_marker: true, size: null, modified: '2026-01-03T00:00:00Z', etag: null },
+          { version_id: 'older-data-version-with-a-long-identifier-0123456789', is_latest: false, is_delete_marker: false, size: 20, modified: '2026-01-02T00:00:00Z', etag: 'old' },
+        ],
+      };
+      case 'restore_object_version':
+        if (args.expectedProfileId !== this.activeProfile || args.confirmed !== true || args.expectedCurrentVersion !== 'current-delete-marker') throw new Error('Stale restore confirmation');
+        return 'restore-job';
+      case 'preview_folder_sync': return {
+        id: 'sync-plan', new_files: 1, changed_files: 1, unverified_files: 0, unchanged_files: 1, remote_only_files: 2, upload_bytes: 40,
+        entries: [
+          { key: 'new.txt', size: 20, action: 'New' },
+          { key: 'changed.txt', size: 20, action: 'Changed' },
+          { key: 'same.txt', size: 20, action: 'Unchanged' },
+        ],
+      };
+      case 'start_folder_sync':
+        if (args.expectedProfileId !== this.activeProfile || args.replaceExisting !== true) throw new Error('Sync confirmation or profile mismatch');
+        return 2;
       case 'plugin:dialog|save': return '/virtual/downloads/notes.txt';
       case 'plugin:dialog|open': return (args.options as Args)?.directory ? '/virtual/downloads' : ['/virtual/upload.txt'];
       case 'queue_download':

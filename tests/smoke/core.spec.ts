@@ -43,7 +43,7 @@ test('deep search selection is cleared when changing profiles', async ({ page, b
   await expect.poll(() => backend.activeProfile).toBe('b');
   await expect(result).toHaveCount(0);
   await expect(page.getByText('1 selected', { exact: true })).toHaveCount(0);
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('brows3-clipboard') || '{}').state.items)).toEqual([]);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('brows3-clipboard') || '{}').state.items)).toMatchObject([{ profileId: 'a', key: 'nested/match.txt' }]);
 });
 
 test('copy and paste through a selected row retain the source profile', async ({ page, backend }) => {
@@ -52,7 +52,10 @@ test('copy and paste through a selected row retain the source profile', async ({
   await selection.check();
   await selection.press('Control+c');
   await page.getByText('nested/', { exact: true }).dblclick();
+  // A double click dispatches navigation but does not await the React route commit.
+  // Paste only after the destination is visible, rather than racing the old folder.
   await expect(page).toHaveURL(/prefix=nested%2F/);
+  await expect(page.getByRole('checkbox', { name: 'Select nested/match.txt', exact: true })).toBeVisible();
   await page.locator('body').press('Control+v');
   await expect.poll(() => backend.calls.find(call => call.command === 'copy_object')?.args).toMatchObject({ sourceKey: 'notes.txt', destinationKey: 'nested/notes.txt', expectedProfileId: 'a' });
   await expect(page.getByRole('checkbox', { name: 'Select nested/notes.txt', exact: true })).toBeVisible();

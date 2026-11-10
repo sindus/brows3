@@ -32,6 +32,8 @@ import { toast } from '@/store/toastStore';
 import { profileApi, transferApi, updaterApi } from '@/lib/tauri';
 import { useClipboardShortcuts } from '@/hooks/useClipboardShortcuts';
 import { preloadMonaco } from '@/lib/monaco-config';
+import { useSavedJobEvents } from '@/hooks/useSavedJobEvents';
+import { usePathname } from 'next/navigation';
 
 const drawerWidth = 260; 
 
@@ -40,9 +42,12 @@ interface AppShellProps {
 }
 
 export default function AppShell({ children }: AppShellProps) {
+  const pathname = usePathname();
+  useSavedJobEvents();
   const { themeMode, sidebarOpen, setSidebarOpen } = useAppStore();
   const { profiles, setProfiles, setActiveProfileId } = useProfileStore();
   const maxConcurrentTransfers = useSettingsStore((state) => state.maxConcurrentTransfers);
+  const transferBandwidthKiB = useSettingsStore((state) => state.transferBandwidthKiB);
   const [mounted, setMounted] = useState(false);
   const [profileDialogOpen, setProfileDialogOpen] = useState(false);
   // Enable clipboard shortcuts globally
@@ -96,6 +101,12 @@ export default function AppShell({ children }: AppShellProps) {
   }, [mounted, maxConcurrentTransfers]);
 
   // Load profiles on mount (Persistence Fix)
+  useEffect(() => {
+    if (mounted && typeof window !== 'undefined' && '__TAURI__' in window) {
+      transferApi.setBandwidth(transferBandwidthKiB * 1024).catch(error => console.warn('Could not apply transfer bandwidth limit:', error));
+    }
+  }, [mounted, transferBandwidthKiB]);
+
   useEffect(() => {
     const initProfiles = async () => {
       // Only run in Tauri environment
@@ -251,7 +262,7 @@ export default function AppShell({ children }: AppShellProps) {
               <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <CircularProgress size={32} />
               </Box>
-            ) : profiles.length === 0 ? (
+            ) : profiles.length === 0 && pathname !== '/jobs' ? (
               <Box sx={{ 
                 height: 'calc(100vh - 150px)', 
                 display: 'flex', 

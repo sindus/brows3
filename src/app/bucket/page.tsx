@@ -52,6 +52,7 @@ import {
   Edit as EditIcon,
   Terminal as TerminalIcon,
   Lock as LockIcon,
+  History as HistoryIcon,
 } from '@mui/icons-material';
 import { useObjects } from '@/hooks/useObjects';
 import { ConsolePanel } from '@/components/common/ConsolePanel';
@@ -62,10 +63,17 @@ import { useTransferStore } from '@/store/transferStore';
 import { useClipboardStore } from '@/store/clipboardStore';
 import { useProfileStore } from '@/store/profileStore';
 import PropertiesDialog from '@/components/dialogs/PropertiesDialog';
+import FolderSyncDialog from '@/components/dialogs/FolderSyncDialog';
+import CrossProfileCopyDialog from '@/components/dialogs/CrossProfileCopyDialog';
+import VersionHistoryDialog from '@/components/dialogs/VersionHistoryDialog';
+import type { ClipboardItem } from '@/store/clipboardStore';
 import PermissionsDialog from '@/components/dialogs/PermissionsDialog';
 import ObjectPreviewDialog from '@/components/dialogs/ObjectPreviewDialog';
-import { canObjectBeEdited, getObjectKind, getObjectName } from '@/lib/objectCapabilities';
+import { canObjectBeEdited, getObjectName } from '@/lib/objectCapabilities';
+import { usePreviewNavigation } from '@/hooks/usePreviewNavigation';
 import PresignedUrlDialog from '@/components/dialogs/PresignedUrlDialog';
+import PublicUrlsDialog from '@/components/dialogs/PublicUrlsDialog';
+import UrlImportDialog from '@/components/dialogs/UrlImportDialog';
 import { VirtualizedObjectTable } from '@/components/common/VirtualizedObjectTable';
 import { GridObjectView } from '@/components/common/GridObjectView';
 import { toast } from '@/store/toastStore';
@@ -289,6 +297,15 @@ function BucketContent() {
 
   const [isUploading, setIsUploading] = useState(false);
   const [uploadMenuAnchor, setUploadMenuAnchor] = useState<null | HTMLElement>(null);
+  const [urlImportScope, setUrlImportScope] = useState<string | null>(null);
+  const [publicLinks, setPublicLinks] = useState<{ scope: string; keys: string[] } | null>(null);
+  useEffect(() => { setUrlImportScope(null); setPublicLinks(null); }, [viewKey]);
+  const [syncDestination, setSyncDestination] = useState<string | null>(null);
+  const [versionHistory, setVersionHistory] = useState<{ viewKey: string; key: string } | null>(null);
+  useEffect(() => { setVersionHistory(null); }, [viewKey]);
+  const [crossCopy, setCrossCopy] = useState<{ viewKey: string; items: ClipboardItem[] } | null>(null);
+  useEffect(() => { setCrossCopy(null); }, [viewKey]);
+  useEffect(() => { setSyncDestination(null); }, [viewKey]);
 
   // Create Folder State
   const [createFolderOpen, setCreateFolderOpen] = useState(false);
@@ -312,18 +329,15 @@ function BucketContent() {
   const [previewKey, setPreviewKey] = useState<string | null>(null);
   const [previewSize, setPreviewSize] = useState<number | undefined>(undefined);
   const [startInEditMode, setStartInEditMode] = useState(false);
+  const [previewScope, setPreviewScope] = useState('');
 
-  const imageSequence = useMemo(() => {
-    const images = (displayData?.objects || []).filter(object => getObjectKind(object.key) === 'image');
-    return images.sort((a, b) => {
-      let comparison = 0;
-      if (sortField === 'name') comparison = getObjectName(a.key).localeCompare(getObjectName(b.key));
-      else if (sortField === 'size') comparison = a.size - b.size;
-      else if (sortField === 'date') comparison = (a.last_modified ? new Date(a.last_modified).getTime() : 0) - (b.last_modified ? new Date(b.last_modified).getTime() : 0);
-      else comparison = (a.storage_class || 'STANDARD').localeCompare(b.storage_class || 'STANDARD');
-      return sortDirection === 'asc' ? comparison : -comparison;
-    }).map(object => object.key);
-  }, [displayData, sortField, sortDirection]);
+  const previewNavigation = usePreviewNavigation({
+    objects: displayData?.objects || [], field: sortField, direction: sortDirection,
+    context: JSON.stringify([viewKey, sortField, sortDirection, deferredSearchQuery, isDeepSearch]),
+    objectKey: previewKey, open: previewOpen && previewScope === viewKey,
+    hasMore: !isDeepSearch && hasMore, query: isDeepSearch ? '' : deferredSearchQuery.trim(), loadMore,
+    onNavigate: object => { setPreviewKey(object.key); setPreviewSize(object.size); setStartInEditMode(false); },
+  });
 
   // Presigned URL Dialog State
   const [presignedUrlOpen, setPresignedUrlOpen] = useState(false);
@@ -517,6 +531,10 @@ function BucketContent() {
   const handlePaste = async () => {
     if (!bucketName || clipboardItems.length === 0) return;
     if (!activeProfileId || clipboardItems.some(item => item.profileId !== activeProfileId)) {
+      if (activeProfileId && clipboardMode === 'copy' && clipboardItems.every(item => !!item.profileId && item.profileId === clipboardItems[0].profileId && item.profileId !== activeProfileId)) {
+        setCrossCopy({ viewKey, items: [...clipboardItems] });
+        return;
+      }
       clearClipboard();
       displayError('The clipboard belongs to another profile. Copy the items again.');
       return;
@@ -999,7 +1017,7 @@ function BucketContent() {
 
   // Show error state if bucket failed to load
   // Show error state if bucket failed to load
-  if (initialError && !isLoading) {
+  if (initialError && !isLoading && !data) {
     // Check if this might be a prefix-restricted access issue
     const isAccessDenied = initialError.toLowerCase().includes('access') ||
                            initialError.toLowerCase().includes('denied') ||
@@ -1189,6 +1207,7 @@ function BucketContent() {
               >
                 Download
               </Button>
+              <Button size="small" variant="outlined" startIcon={<LinkIcon />} sx={{ borderRadius: '999px' }} disabled={!activeProfileId || Array.from(selectedKeys).some(key => currentFolderKeys.has(key))} onClick={() => setPublicLinks({ scope: viewKey, keys: Array.from(selectedKeys) })}>Copy public URLs</Button>
                <Button
                 variant="contained"
                 color="error"
@@ -1241,6 +1260,11 @@ function BucketContent() {
                 <ListItemIcon><FolderIcon fontSize="small" /></ListItemIcon>
                 Folder
             </MenuItem>
+            <MenuItem disabled={!activeProfileId} onClick={() => { setUploadMenuAnchor(null); setUrlImportScope(viewKey); }}><ListItemIcon><LinkIcon fontSize="small" /></ListItemIcon>Import from URLs</MenuItem>
+            <MenuItem onClick={() => { setUploadMenuAnchor(null); setSyncDestination(`${activeProfileId}:${bucketName}:${prefix}`); }} disabled={!activeProfileId}>
+                <ListItemIcon><FolderIcon fontSize="small" /></ListItemIcon>
+                Sync local folder...
+            </MenuItem>
         </Menu>
           </>
         )}
@@ -1261,6 +1285,11 @@ function BucketContent() {
           </IconButton>
         </Tooltip>
 
+        <Tooltip title="Version history, including deleted objects">
+            <IconButton size="small" aria-label="Version history" title="Version history, including deleted objects" disabled={!activeProfileId} onClick={() => setVersionHistory({ viewKey, key: selectedKeys.size === 1 ? Array.from(selectedKeys)[0] : prefix })}>
+              <HistoryIcon fontSize="small" />
+            </IconButton>
+        </Tooltip>
         <Tooltip title="Refresh">
             <IconButton
               onClick={() => refresh()}
@@ -1372,12 +1401,14 @@ function BucketContent() {
           setDeleteConfirmOpen(true);
         }}
         onPreview={(key, size) => {
+          setPreviewScope(viewKey);
           setStartInEditMode(false);
           setPreviewKey(key);
           setPreviewSize(size);
           setPreviewOpen(true);
         }}
         onEdit={(key) => {
+          setPreviewScope(viewKey);
           setStartInEditMode(true);
           setPreviewKey(key);
           setPreviewSize(currentObjectSizeMap.get(key));
@@ -1411,6 +1442,7 @@ function BucketContent() {
           <MenuItem onClick={() => {
             if (selectedObject) {
               setStartInEditMode(true);
+              setPreviewScope(viewKey);
               setPreviewKey(selectedObject.key);
               setPreviewSize(currentObjectSizeMap.get(selectedObject.key));
               setPreviewOpen(true);
@@ -1455,6 +1487,8 @@ function BucketContent() {
            <ListItemIcon><InfoIcon fontSize="small" /></ListItemIcon>
            Properties
         </MenuItem>
+        {!selectedObject?.isFolder && <MenuItem onClick={() => { if (selectedObject) setVersionHistory({ viewKey, key: selectedObject.key }); handleMenuClose(); }}><ListItemIcon><HistoryIcon fontSize="small" /></ListItemIcon>Version history</MenuItem>}
+        {!selectedObject?.isFolder && <MenuItem onClick={() => { if (selectedObject) setPublicLinks({ scope: viewKey, keys: [selectedObject.key] }); handleMenuClose(); }}><ListItemIcon><LinkIcon fontSize="small" /></ListItemIcon>Copy public URL</MenuItem>}
         <MenuItem onClick={handlePermissionsOpen}>
            <ListItemIcon><LockIcon fontSize="small" /></ListItemIcon>
            Permissions
@@ -1635,6 +1669,9 @@ function BucketContent() {
       </Dialog>
 
       {/* Properties Dialog */}
+      {activeProfileId && syncDestination === `${activeProfileId}:${bucketName}:${prefix}` && <FolderSyncDialog key={syncDestination} bucket={bucketName} region={bucketRegion} prefix={prefix} profileId={activeProfileId} onClose={() => setSyncDestination(null)} />}
+      {activeProfileId && crossCopy?.viewKey === viewKey && <CrossProfileCopyDialog key={viewKey} items={crossCopy.items} bucket={bucketName} region={bucketRegion} prefix={prefix} profileId={activeProfileId} onClose={() => setCrossCopy(null)} />}
+      {activeProfileId && versionHistory?.viewKey === viewKey && <VersionHistoryDialog key={`${viewKey}:${versionHistory.key}`} bucket={bucketName} region={bucketRegion} profileId={activeProfileId} initialKey={versionHistory.key} onClose={() => setVersionHistory(null)} />}
       <PropertiesDialog
         open={propertiesOpen}
         onClose={() => setPropertiesOpen(false)}
@@ -1654,23 +1691,25 @@ function BucketContent() {
 
       {/* Preview/Edit Dialog */}
       <ObjectPreviewDialog
-        open={previewOpen}
+        key={`preview:${viewKey}`}
+        open={previewOpen && previewScope === viewKey}
         onClose={handlePreviewClose}
         bucketName={bucketName}
         bucketRegion={bucketRegion}
         objectKey={previewKey || ''}
         objectSize={previewSize}
-        imageSequence={imageSequence}
-        onNavigateImage={key => {
-          setPreviewKey(key);
-          setPreviewSize(currentObjectSizeMap.get(key));
-          setStartInEditMode(false);
-        }}
+        navigation={{ index: previewNavigation.index, total: previewNavigation.total, busy: previewNavigation.busy, error: previewNavigation.error,
+          onPrevious: previewNavigation.previous ? () => void previewNavigation.navigate('prev') : undefined,
+          onNext: previewNavigation.next ? () => void previewNavigation.navigate('next') : undefined }}
+        isSelected={!!previewKey && selectedKeys.has(previewKey)}
+        onToggleSelect={previewKey && previewScope === viewKey ? () => handleSelect(previewKey, !selectedKeys.has(previewKey)) : undefined}
         onSave={() => refresh()}
         startInEditMode={startInEditMode}
       />
 
       {/* Presigned URL Dialog */}
+      {activeProfileId && urlImportScope === viewKey && <UrlImportDialog key={`url-import:${viewKey}`} bucket={bucketName} region={bucketRegion} prefix={prefix} profileId={activeProfileId} onClose={() => setUrlImportScope(null)} />}
+      {activeProfileId && publicLinks?.scope === viewKey && <PublicUrlsDialog key={`public-links:${viewKey}`} bucket={bucketName} region={bucketRegion} keys={publicLinks.keys} profileId={activeProfileId} onClose={() => setPublicLinks(null)} />}
       <PresignedUrlDialog
         open={presignedUrlOpen}
         onClose={() => { setPresignedUrlOpen(false); setPresignedUrlKey(null); }}

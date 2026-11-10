@@ -63,6 +63,7 @@ pub fn run() {
         .manage(Arc::new(RwLock::new(S3ClientManager::new())))
         .manage(Arc::new(TransferManager::new()))
         .manage(thumbnails::ThumbnailState::new())
+        .manage(commands::sync::SyncPlans::default())
         .setup(|app| {
             // Add native menu on macOS to enable Copy/Paste/Cut/SelectAll/Undo/Redo shortcuts
             // Add native menu to enable standard shortcuts and window controls
@@ -241,6 +242,17 @@ pub fn run() {
                 log::error!("Transfer recovery is unavailable: {error}");
             }
 
+            let jobs_path = data_dir.join("saved-jobs.json");
+            let jobs =
+                commands::jobs::JobStore::open(jobs_path.clone(), chrono::Utc::now().timestamp())
+                    .unwrap_or_else(|error| {
+                        log::error!("Saved jobs unavailable: {error}");
+                        commands::jobs::JobStore::unavailable(jobs_path, error.to_string())
+                    });
+            let jobs = Arc::new(tokio::sync::Mutex::new(jobs));
+            app.manage(jobs.clone());
+            commands::jobs::start_scheduler(app.handle().clone(), jobs);
+
             // Show the main window after initialization to prevent white flash
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.show();
@@ -315,6 +327,20 @@ pub fn run() {
             operations::get_object_permissions,
             operations::set_object_permissions,
             // Transfer commands
+            commands::urls::get_public_urls,
+            commands::urls::check_public_url,
+            commands::urls::queue_url_imports,
+            commands::sync::preview_folder_sync,
+            commands::sync::start_folder_sync,
+            commands::jobs::list_saved_jobs,
+            commands::jobs::save_sync_job,
+            commands::jobs::run_saved_job,
+            commands::jobs::cancel_saved_job,
+            commands::jobs::set_saved_job_enabled,
+            commands::jobs::delete_saved_job,
+            commands::cross_copy::copy_between_profiles,
+            commands::versions::list_object_versions,
+            commands::versions::restore_object_version,
             transfer_cmd::queue_upload,
             transfer_cmd::queue_download,
             transfer_cmd::list_transfers,
@@ -334,6 +360,7 @@ pub fn run() {
             thumbnails::clear_thumbnail_cache,
             thumbnails::set_cache_limit,
             updater::get_updater_target,
+            transfer_cmd::set_transfer_bandwidth,
             get_log_file_info,
         ])
         .run(tauri::generate_context!())

@@ -1,6 +1,12 @@
+pub mod controls;
 pub mod download;
 pub mod manager;
+pub mod public_url;
+pub mod remote;
 mod speed;
+pub mod sync;
+pub mod url_import;
+pub mod web;
 
 pub use manager::TransferManager;
 
@@ -27,12 +33,24 @@ pub enum TransferStatus {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TransferJob {
+    #[serde(default)]
+    pub url_import: Option<url_import::UrlSource>,
+    #[serde(default)]
+    pub phase: Option<String>,
     pub id: String,
     pub profile_id: String,
     pub bucket: String,
     pub bucket_region: Option<String>,
     pub key: String,
     pub local_path: String,
+    #[serde(default)]
+    pub sync_source: Option<sync::SyncSource>,
+    #[serde(default)]
+    pub remote_source: Option<remote::RemoteSource>,
+    #[serde(default)]
+    pub restore_guard: Option<crate::s3::versions::RestoreGuard>,
+    #[serde(default)]
+    pub bandwidth_limit: Option<u64>,
     #[serde(skip)]
     pub download_destination: Option<std::sync::Arc<download::DownloadDestination>>,
     pub transfer_type: TransferType,
@@ -53,6 +71,7 @@ pub struct TransferJob {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TransferEvent {
+    pub phase: Option<String>,
     pub job_id: String,
     pub bytes_per_second: f64,
     pub processed_bytes: u64,
@@ -62,6 +81,18 @@ pub struct TransferEvent {
 }
 
 impl TransferJob {
+    pub fn destination_etag(&self) -> Option<&str> {
+        if let Some(source) = &self.url_import {
+            return source.expected_etag.as_deref();
+        }
+        match &self.restore_guard {
+            Some(guard) => guard.current_etag.as_deref(),
+            None => self
+                .sync_source
+                .as_ref()
+                .and_then(|s| s.expected_etag.as_deref()),
+        }
+    }
     pub fn new(
         transfer_type: TransferType,
         profile_id: String,
@@ -72,12 +103,18 @@ impl TransferJob {
         total_bytes: u64,
     ) -> Self {
         Self {
+            url_import: None,
+            phase: None,
             id: Uuid::new_v4().to_string(),
             profile_id,
             bucket,
             bucket_region,
             key,
             local_path: local_path.to_string_lossy().to_string(),
+            sync_source: None,
+            remote_source: None,
+            restore_guard: None,
+            bandwidth_limit: None,
             download_destination: None,
             transfer_type,
             status: TransferStatus::Pending,

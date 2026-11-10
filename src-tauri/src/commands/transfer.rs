@@ -514,6 +514,34 @@ pub async fn retry_transfer(
     s3_state: State<'_, S3State>,
     transfer_state: State<'_, TransferState>,
 ) -> Result<Option<String>> {
+    if transfer_state
+        .get_job(&job_id)
+        .await
+        .is_some_and(|job| job.url_import.is_some_and(|s| s.url.is_empty()))
+    {
+        return Err(crate::error::AppError::ConfigError(
+            "Source URLs are not saved. Use Edit source to re-enter the URL after restarting."
+                .into(),
+        ));
+    }
+    if transfer_state
+        .get_job(&job_id)
+        .await
+        .is_some_and(|job| job.remote_source.is_some_and(|s| !s.current_session))
+    {
+        return Err(crate::error::AppError::ConfigError(
+            "Copy the objects again after restarting the app.".into(),
+        ));
+    }
+    if transfer_state
+        .get_job(&job_id)
+        .await
+        .is_some_and(|job| job.sync_source.is_some_and(|s| !s.current_session))
+    {
+        return Err(crate::error::AppError::ConfigError(
+            "Create a fresh folder sync preview after restarting the app.".into(),
+        ));
+    }
     if transfer_state.get_job(&job_id).await.is_some_and(|job| {
         matches!(job.transfer_type, TransferType::Download) && job.download_destination.is_none()
     }) {
@@ -612,4 +640,12 @@ pub async fn set_transfer_concurrency(
 ) -> Result<()> {
     transfer_state.set_max_concurrency(max_concurrency as usize);
     Ok(())
+}
+
+#[tauri::command]
+pub async fn set_transfer_bandwidth(
+    bytes_per_second: u64,
+    transfer_state: State<'_, TransferState>,
+) -> Result<()> {
+    transfer_state.set_bandwidth_limit(bytes_per_second)
 }

@@ -59,6 +59,54 @@ const invoke = async <T>(cmd: string, args?: Record<string, unknown>): Promise<T
 };
 
 // Cache invalidation helper - hooks can subscribe to write-driven invalidation
+export interface SavedJobConfig {
+  name: string;
+  local_path: string;
+  profile_id: string;
+  bucket: string;
+  region: string | null;
+  prefix: string;
+  options: { include: string[]; exclude: string[]; skip_existing: boolean };
+  bandwidth: number;
+  interval_minutes: number | null;
+  allow_replacement: boolean;
+}
+export interface SavedJob {
+  id: string;
+  config: SavedJobConfig;
+  enabled: boolean;
+  next_run: number | null;
+  last_run: null | { id: string; started_at: number; finished_at: number | null; status: string; message: string; transfer_ids: string[]; cancel_requested: boolean };
+}
+export const jobsApi = {
+  list: () => invoke<SavedJob[]>('list_saved_jobs'),
+  save: (config: SavedJobConfig, approved: boolean) => invoke<SavedJob>('save_sync_job', { config, approved }),
+  run: (id: string) => invoke<void>('run_saved_job', { id }),
+  cancel: (id: string) => invoke<void>('cancel_saved_job', { id }),
+  setEnabled: (id: string, enabled: boolean) => invoke<void>('set_saved_job_enabled', { id, enabled }),
+  delete: (id: string) => invoke<void>('delete_saved_job', { id }),
+};
+
+export interface SyncPreview {
+  id: string;
+  entries: { key: string; size: number; action: 'New' | 'Changed' | 'Unverified' | 'Unchanged' | 'Filtered' | 'Skipped' }[];
+  filtered_files?: number;
+  skipped_files?: number;
+  new_files: number;
+  changed_files: number;
+  unverified_files: number;
+  unchanged_files: number;
+  remote_only_files: number;
+  upload_bytes: number;
+}
+
+export const syncApi = {
+  preview: (localPath: string, bucketName: string, bucketRegion: string | undefined, prefix: string, expectedProfileId: string, options?: { include: string[]; exclude: string[]; skip_existing: boolean }) =>
+    invoke<SyncPreview>('preview_folder_sync', { localPath, bucketName, bucketRegion, prefix, expectedProfileId, options }),
+  start: (planId: string, replaceExisting: boolean, expectedProfileId: string) =>
+    invoke<number>('start_folder_sync', { planId, replaceExisting, expectedProfileId }),
+};
+
 type CacheScope = 'objects' | 'buckets';
 const cacheInvalidators = new Set<(scope: CacheScope) => void>();
 
@@ -111,6 +159,7 @@ export type CredentialType =
   | { type: 'CustomEndpoint'; endpoint_url: string; access_key_id: string; secret_access_key: string };
 
 export interface Profile {
+  public_urls?: PublicUrlSettings;
   id: string;
   name: string;
   credential_type: CredentialType;
@@ -119,6 +168,17 @@ export interface Profile {
   created_at?: string;
   updated_at?: string;
 }
+
+export interface PublicUrlSettings {
+  base_url: string;
+  include_bucket: boolean;
+  bucket_overrides: Record<string, string>;
+}
+export const urlApi = {
+  publicUrls: (bucket: string, region: string | undefined, keys: string[], expectedProfileId: string, overrides?: Record<string,string>) => invoke<string[]>('get_public_urls', { bucket, region, keys, overrides, expectedProfileId }),
+  checkPublicUrl: (bucket: string, region: string | undefined, key: string, expectedProfileId: string, urlOverride?: string) => invoke<string>('check_public_url', { bucket, region, key, expectedProfileId, urlOverride }),
+  importUrls: (bucket: string, region: string | undefined, prefix: string, entries: import('./urlImport').UrlImportEntry[], expectedProfileId: string) => invoke<number>('queue_url_imports', { bucket, region, prefix, entries, expectedProfileId }),
+};
 
 export interface TestConnectionResult {
   success: boolean;
@@ -305,6 +365,12 @@ export const objectApi = {
 };
 
 export const operationsApi = {
+  async copyBetweenProfiles(items: import('@/store/clipboardStore').ClipboardItem[], destinationBucket: string, destinationRegion: string, destinationPrefix: string, expectedProfileId: string): Promise<number> {
+    if (expectedProfileId !== useProfileStore.getState().activeProfileId) {
+      throw new Error('The destination profile changed. Paste again.');
+    }
+    return invoke<number>('copy_between_profiles', { items, destinationBucket, destinationRegion, destinationPrefix, expectedProfileId });
+  },
   async putObject(bucketName: string, bucketRegion: string | undefined, key: string, localPath?: string): Promise<void> {
     await invoke<void>('put_object', { bucketName, bucketRegion, key, localPath });
     invalidateCache(); // Auto-refresh after upload
@@ -371,6 +437,27 @@ export const operationsApi = {
   },
 };
 
+export interface ObjectVersion {
+  version_id: string;
+  is_latest: boolean;
+  is_delete_marker: boolean;
+  size: number | null;
+  modified: string | null;
+  etag: string | null;
+}
+export interface VersionCursor { key_marker: string; version_id_marker: string }
+export interface VersionHistory { versioning: string; versions: ObjectVersion[]; next: VersionCursor | null }
+export const versionsApi = {
+  async list(bucket: string, region: string, key: string, cursor: VersionCursor | null, expectedProfileId: string): Promise<VersionHistory> {
+    if (useProfileStore.getState().activeProfileId !== expectedProfileId) throw new Error('Profile changed. Open history again.');
+    return invoke<VersionHistory>('list_object_versions', { bucket, region, key, cursor, expectedProfileId });
+  },
+  async restore(bucket: string, region: string, key: string, versionId: string, expectedCurrentVersion: string, confirmed: boolean, expectedProfileId: string): Promise<string> {
+    if (useProfileStore.getState().activeProfileId !== expectedProfileId) throw new Error('Profile changed. Open history again.');
+    return invoke<string>('restore_object_version', { bucket, region, key, versionId, expectedCurrentVersion, confirmed, expectedProfileId });
+  },
+};
+
 export interface ObjectMetadata {
   key: string;
   size: number;
@@ -415,6 +502,8 @@ export interface SetObjectPermissionsResult {
 }
 
 export interface TransferJob {
+  phase?: string | null;
+  url_import?: { max_bytes: number; max_attempts?: number; sha256: string | null; expected_etag: string | null } | null;
   id: string;
   profile_id: string;
   transfer_type: 'Upload' | 'Download';
@@ -434,6 +523,7 @@ export interface TransferJob {
 }
 
 export interface TransferEvent {
+  phase?: string | null;
   job_id: string;
   processed_bytes: number;
   bytes_per_second?: number;
@@ -507,6 +597,9 @@ export const updaterApi = {
 };
 
 export const transferApi = {
+  async setBandwidth(bytesPerSecond: number): Promise<void> {
+    return invoke<void>('set_transfer_bandwidth', { bytesPerSecond });
+  },
   async queueUpload(bucketName: string, bucketRegion: string | undefined, key: string, localPath: string, totalBytes: number, expectedProfileId = useProfileStore.getState().activeProfileId): Promise<string> {
     return invoke<string>('queue_upload', { bucketName, bucketRegion, key, localPath, totalBytes, expectedProfileId });
   },
