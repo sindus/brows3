@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-11-10
+
+### Added
+- **Folder Sync**: One-way S3 folder sync with a preview before anything is transferred, a bandwidth limit, and saved or scheduled sync jobs.
+- **Cross-Profile Copy**: Copy objects safely from one S3 profile to another.
+- **Version History**: Browse the versions of an object, including deleted ones, and restore a version after a guarded confirmation.
+- **Public URLs And URL Imports**: Generate public URLs and import files from a URL, with guards on the destination.
+- **Preview Navigation**: Selection in the preview and navigation across mixed file types.
+
+### Changed
+- Synced with upstream `rgcsekaraa/brows3` up to v0.2.46, including a safer retry of crate publication.
+
 ## [0.6.0] - 2026-11-09
 
 ### Changed
